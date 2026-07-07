@@ -39,12 +39,72 @@ const CHILD_AGES = {
 // ------------------------------------------------------------
 const SCREENS = {
 
+  /* ===== 인증 ===== */
+  'login': () => ({
+    body: `
+      <div style="text-align:center;padding:22px 0 6px">
+        <div style="font-size:44px">🤱</div>
+        <h3 style="font-family:var(--mc-serif);font-size:24px;color:var(--mc-pine);margin-top:8px">맘케어 로그인</h3>
+        <p style="font-size:13px;color:var(--mc-muted);margin-top:4px">검증된 전문가와 함께하세요</p>
+      </div>
+      <div class="mc-field"><label>휴대폰 번호</label><input id="mcLoginPhone" type="text" placeholder="010-1111-1111" value="010-1111-1111"></div>
+      <div class="mc-field"><label>비밀번호</label><input id="mcLoginPw" type="password" placeholder="비밀번호" value="test1234"></div>
+      <button class="mc-app-next" style="margin-top:4px" onclick="mcDoLogin()">로그인</button>
+      <div style="text-align:center;margin:16px 0;font-size:13px;color:var(--mc-muted)">계정이 없으신가요? <a onclick="mcGo('signup-choice')" style="color:var(--mc-terra);font-weight:700;cursor:pointer">회원가입</a></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:16px 0"><div style="flex:1;height:1px;background:var(--mc-line)"></div><span style="font-size:12px;color:var(--mc-muted)">데모 계정으로 바로 체험</span><div style="flex:1;height:1px;background:var(--mc-line)"></div></div>
+      <div class="mc-opts">
+        <button class="mc-opt" onclick="mcQuickLogin('parent')"><span class="mc-opt-ic">👨‍👩‍👧</span><span class="mc-opt-t"><b>부모로 체험</b><span>예약·매칭·리뷰</span></span></button>
+        <button class="mc-opt" onclick="mcQuickLogin('worker')"><span class="mc-opt-ic">🩺</span><span class="mc-opt-t"><b>근무자로 체험</b><span>예약요청·수입</span></span></button>
+        <button class="mc-opt" onclick="mcQuickLogin('admin')"><span class="mc-opt-ic">🛡️</span><span class="mc-opt-t"><b>관리자로 체험</b><span>자격 승인</span></span></button>
+      </div>`,
+    foot: '',
+  }),
+
+  'signup-choice': () => ({
+    body: `
+      ${backBar('login', '회원가입')}
+      <div class="mc-q">어떤 회원으로<br>가입하시나요?</div>
+      <div class="mc-q-sub">부모 또는 돌봄 전문가를 선택하세요</div>
+      <div class="mc-opts">
+        <button class="mc-opt" onclick="mcGo('signup-parent')"><span class="mc-opt-ic">👨‍👩‍👧</span><span class="mc-opt-t"><b>부모 회원</b><span>돌봄을 받고 싶어요</span></span></button>
+        <button class="mc-opt" onclick="mcGo('signup-worker')"><span class="mc-opt-ic">🩺</span><span class="mc-opt-t"><b>근무자 회원</b><span>간호사·간호조무사</span></span></button>
+      </div>`,
+    foot: '',
+  }),
+
+  'signup-parent': () => ({
+    body: `
+      ${backBar('signup-choice', '부모 회원가입')}
+      <div class="mc-field"><label>이름</label><input id="mcSuName" placeholder="예) 지민맘"></div>
+      <div class="mc-field"><label>휴대폰 번호</label><input id="mcSuPhone" placeholder="010-0000-0000"></div>
+      <div class="mc-field"><label>비밀번호 (4자 이상)</label><input id="mcSuPw" type="password" placeholder="비밀번호"></div>
+      <div class="mc-field"><label>주소</label><input id="mcSuAddr" placeholder="서울시 강남구 ..."></div>`,
+    foot: `<button class="mc-app-next" onclick="mcDoSignupParent()">가입하고 시작하기</button>`,
+  }),
+
+  'signup-worker': () => ({
+    body: `
+      ${backBar('signup-choice', '근무자 회원가입')}
+      <div class="mc-field"><label>이름</label><input id="mcSwName" placeholder="예) 김서연"></div>
+      <div class="mc-field"><label>휴대폰 번호</label><input id="mcSwPhone" placeholder="010-0000-0000"></div>
+      <div class="mc-field"><label>비밀번호 (4자 이상)</label><input id="mcSwPw" type="password" placeholder="비밀번호"></div>
+      <div class="mc-app-label">자격</div>
+      <div class="mc-opts" id="mcSwLicense">
+        <button class="mc-opt mc-sel" onclick="mcPickLicense(this,'간호사')"><span class="mc-opt-ic">🩺</span><span class="mc-opt-t"><b>간호사</b></span></button>
+        <button class="mc-opt" onclick="mcPickLicense(this,'간호조무사')"><span class="mc-opt-ic">💉</span><span class="mc-opt-t"><b>간호조무사</b></span></button>
+      </div>
+      <div class="mc-field" style="margin-top:14px"><label>희망 등급 (A/B/C/D)</label><input id="mcSwGrade" placeholder="B" value="B"></div>
+      <div class="mc-field"><label>경력 (년)</label><input id="mcSwYears" type="number" placeholder="3" value="3"></div>
+      <div class="mc-field"><label>경력 요약</label><input id="mcSwNote" placeholder="예) 신생아실 3년"></div>`,
+    foot: `<button class="mc-app-next" onclick="mcDoSignupWorker()">가입 신청 (승인 대기)</button>`,
+  }),
+
   /* ===== 부모 ===== */
   'parent-home': () => ({
     body: `
       <div class="mc-app-top" style="justify-content:space-between">
-        <div><div class="mc-app-greet">안녕하세요, 지민맘님 👋<b>오늘도 안심하세요</b></div></div>
-        <div class="mc-back" style="border:none;background:var(--mc-ivory-2)">🔔</div>
+        <div><div class="mc-app-greet">안녕하세요, ${mcApi.user?.name || '고객'}님 👋<b>오늘도 안심하세요</b></div></div>
+        <button class="mc-back" style="border:none;background:var(--mc-ivory-2)" onclick="mcLogout()" title="로그아웃">🚪</button>
       </div>
       <div class="mc-hero-cta" onclick="mcGo('parent-grade')">
         <h4>전문 육아도우미 예약</h4>
@@ -274,8 +334,11 @@ const SCREENS = {
   'worker-home': () => ({
     body: `
       <div class="mc-app-top" style="justify-content:space-between">
-        <div><div class="mc-app-greet">김서연 간호사님 👩‍⚕️<b>오늘도 안전 근무!</b></div></div>
-        <span class="mc-vbadge">A등급 · 활동중</span>
+        <div><div class="mc-app-greet">${mcApi.user?.name || '근무자'}님 👩‍⚕️<b>오늘도 안전 근무!</b></div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="mc-vbadge">활동중</span>
+          <button class="mc-back" style="border:none;background:var(--mc-ivory-2)" onclick="mcLogout()" title="로그아웃">🚪</button>
+        </div>
       </div>
       <div class="mc-earn-card">
         <div class="mc-earn-label">이번 달 수입</div>
@@ -329,7 +392,10 @@ const SCREENS = {
   /* ===== 관리자 ===== */
   'admin-home': () => ({
     body: `
-      <div class="mc-app-top"><h3 style="font-size:20px">🛡️ 관리자 콘솔</h3></div>
+      <div class="mc-app-top" style="justify-content:space-between">
+        <h3 style="font-size:20px">🛡️ 관리자 콘솔</h3>
+        <button class="mc-back" style="border:none;background:var(--mc-ivory-2)" onclick="mcLogout()" title="로그아웃">🚪</button>
+      </div>
       <div class="mc-admin-stat-row">
         <div class="mc-admin-stat"><b id="mcAdmPending">7</b><span>승인 대기</span></div>
         <div class="mc-admin-stat"><b id="mcAdmApproved">142</b><span>활동 전문가</span></div>
@@ -588,10 +654,84 @@ async function mcSubmitReview() {
   mcGo('parent-done');
 }
 
+// 랜딩의 역할 스위치 버튼 → 데모 계정 로그인
 function mcSwitchRole(role) {
-  mcState.role = role;
   document.querySelectorAll('.mc-role-btn').forEach(b => b.classList.toggle('mc-active', b.dataset.role===role));
+  mcQuickLogin(role);
+}
+
+// ------------------------------------------------------------
+// 인증 (로그인 / 회원가입 / 로그아웃)
+// ------------------------------------------------------------
+const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+
+// 로그인 후 역할별 홈으로 라우팅
+function mcRouteAfterLogin(roleUpper) {
+  const map = { PARENT: ['parent', 'parent-home'], WORKER: ['worker', 'worker-home'], ADMIN: ['admin', 'admin-home'] };
+  const [r, screen] = map[roleUpper] || ['parent', 'parent-home'];
+  mcState.role = r;
+  mcRender(screen);
+}
+
+// 데모 계정 원터치 로그인 (오프라인이면 가짜 세션으로 목업 진행)
+async function mcQuickLogin(role) {
+  if (mcApi.live) {
+    try {
+      const u = await mcApi.loginDemo(role);
+      mcRouteAfterLogin(u.role);
+      return;
+    } catch (e) {
+      console.warn('데모 로그인 실패, 오프라인 데모로 진행:', e);
+    }
+  }
+  mcApi.user = { role: role.toUpperCase(), name: role === 'parent' ? '지민맘' : role === 'worker' ? '김서연' : '관리자' };
+  mcState.role = role;
   mcRender(role === 'parent' ? 'parent-home' : role === 'worker' ? 'worker-home' : 'admin-home');
+}
+
+async function mcDoLogin() {
+  if (!mcApi.live) { alert('데모 모드(서버 미연결)에서는 아래 "데모 계정으로 체험"을 이용하세요.'); return; }
+  try {
+    const u = await mcApi.login(val('mcLoginPhone'), val('mcLoginPw'));
+    mcRouteAfterLogin(u.role);
+  } catch (e) { alert('로그인 실패: ' + e.message); }
+}
+
+async function mcDoSignupParent() {
+  if (!mcApi.live) { alert('데모 모드에서는 회원가입을 사용할 수 없습니다. "데모 계정으로 체험"을 이용하세요.'); return; }
+  const payload = { name: val('mcSuName'), phone: val('mcSuPhone'), password: val('mcSuPw'), address: val('mcSuAddr') };
+  if (!payload.name || !payload.phone || !payload.password || !payload.address) { alert('모든 항목을 입력하세요.'); return; }
+  try { const u = await mcApi.signupParent(payload); mcRouteAfterLogin(u.role); }
+  catch (e) { alert('가입 실패: ' + e.message); }
+}
+
+let mcSignupLicense = '간호사';
+function mcPickLicense(btn, lic) {
+  mcSignupLicense = lic;
+  document.querySelectorAll('#mcSwLicense .mc-opt').forEach(b => b.classList.toggle('mc-sel', b === btn));
+}
+
+async function mcDoSignupWorker() {
+  if (!mcApi.live) { alert('데모 모드에서는 회원가입을 사용할 수 없습니다.'); return; }
+  const grade = (val('mcSwGrade') || '').toUpperCase();
+  if (!['A', 'B', 'C', 'D'].includes(grade)) { alert('등급은 A / B / C / D 중 하나여야 합니다.'); return; }
+  const payload = {
+    name: val('mcSwName'), phone: val('mcSwPhone'), password: val('mcSwPw'),
+    licenseType: mcSignupLicense, grade, careerYears: parseInt(val('mcSwYears') || '0', 10), careerNote: val('mcSwNote'),
+  };
+  if (!payload.name || !payload.phone || !payload.password) { alert('이름·휴대폰·비밀번호를 입력하세요.'); return; }
+  try {
+    const u = await mcApi.signupWorker(payload);
+    alert('가입 신청 완료! 관리자 승인 후 활동할 수 있어요.');
+    mcRouteAfterLogin(u.role);
+  } catch (e) { alert('가입 실패: ' + e.message); }
+}
+
+function mcLogout() {
+  mcApi.logout();
+  mcState.role = 'parent';
+  document.querySelectorAll('.mc-role-btn').forEach(b => b.classList.remove('mc-active'));
+  mcRender('login');
 }
 
 // ------------------------------------------------------------
@@ -616,7 +756,9 @@ function mcUpdateConnBadge() {
 
 // 초기화
 document.addEventListener('DOMContentLoaded', async () => {
-  mcRender('parent-home');
+  // 저장된 세션이 있으면 역할 홈, 없으면 로그인 화면
+  if (mcApi.isLoggedIn() && mcApi.user) mcRouteAfterLogin(mcApi.user.role);
+  else mcRender('login');
   document.querySelectorAll('.mc-reveal').forEach(el => mcObserver.observe(el));
   await mcApi.check();     // 백엔드 생존 확인
   mcUpdateConnBadge();
