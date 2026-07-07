@@ -336,41 +336,19 @@ const SCREENS = {
       <div class="mc-app-top" style="justify-content:space-between">
         <div><div class="mc-app-greet">${mcApi.user?.name || '근무자'}님 👩‍⚕️<b>오늘도 안전 근무!</b></div></div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span class="mc-vbadge">활동중</span>
+          <span class="mc-vbadge" id="mcWkGrade">활동중</span>
           <button class="mc-back" style="border:none;background:var(--mc-ivory-2)" onclick="mcLogout()" title="로그아웃">🚪</button>
         </div>
       </div>
       <div class="mc-earn-card">
-        <div class="mc-earn-label">이번 달 수입</div>
-        <div class="mc-earn-amt">1,840,000원</div>
-        <div class="mc-earn-row"><span>완료 근무 12건</span><span>평점 ⭐ 4.9</span></div>
+        <div class="mc-earn-label">누적 정산 수입</div>
+        <div class="mc-earn-amt" id="mcWkEarn">—</div>
+        <div class="mc-earn-row"><span id="mcWkCount">완료 근무 —건</span><span id="mcWkRating">평점 ⭐ —</span></div>
       </div>
-      <div class="mc-app-label">🔔 새 예약 요청 2건</div>
-      <div class="mc-request-card">
-        <div class="mc-rq-top">
-          <div><h4>강남구 · 신생아 돌봄</h4><div class="mc-rq-meta">7월 12일 09:00 · 3시간</div></div>
-          <span class="mc-rq-badge">A등급 요청</span>
-        </div>
-        <div class="mc-rq-meta">100일 미만 · 수유·재우기 요청</div>
-        <div style="margin-top:8px" class="mc-rq-pay">예상 수입 127,500원</div>
-        <div class="mc-rq-actions">
-          <button class="mc-rq-reject" onclick="alert('요청을 거절했습니다')">거절</button>
-          <button class="mc-rq-accept" onclick="mcGo('worker-accepted')">수락하기</button>
-        </div>
-      </div>
-      <div class="mc-request-card">
-        <div class="mc-rq-top">
-          <div><h4>서초구 · 야간 돌봄</h4><div class="mc-rq-meta">7월 13일 21:00 · 6시간</div></div>
-          <span class="mc-rq-badge">A등급 요청</span>
-        </div>
-        <div class="mc-rq-meta">6개월 · 야간 수유·기저귀</div>
-        <div style="margin-top:8px" class="mc-rq-pay">예상 수입 255,000원</div>
-        <div class="mc-rq-actions">
-          <button class="mc-rq-reject" onclick="alert('요청을 거절했습니다')">거절</button>
-          <button class="mc-rq-accept" onclick="mcGo('worker-accepted')">수락하기</button>
-        </div>
-      </div>`,
+      <div class="mc-app-label">내 배정 근무</div>
+      <div id="mcWorkerList"><div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">불러오는 중…</div></div>`,
     foot: '',
+    onEnter: () => mcLoadWorker(),
   }),
 
   'worker-accepted': () => ({
@@ -604,6 +582,93 @@ function mcAdminApprove(btn) {
   card.style.opacity = '0';
   card.style.transform = 'translateX(30px)';
   setTimeout(() => { card.innerHTML = '<div style="text-align:center;padding:14px;color:var(--mc-pine);font-weight:700">✓ 승인 완료 — 활동 가능</div>'; card.style.opacity='1'; card.style.transform='none'; }, 400);
+}
+
+// ------------------------------------------------------------
+// 근무자 앱 (실서버 연동)
+// ------------------------------------------------------------
+const mcSetText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+async function mcLoadWorker() {
+  const uid = mcApi.user?.id;
+  const listEl = document.getElementById('mcWorkerList');
+  // 오프라인/데모 모드: 목업 표시
+  if (!mcApi.live || !uid) {
+    mcSetText('mcWkEarn', '1,840,000원');
+    mcSetText('mcWkCount', '완료 근무 12건');
+    mcSetText('mcWkRating', '평점 ⭐ 4.9');
+    mcSetText('mcWkGrade', 'A등급 · 활동중');
+    if (listEl) listEl.innerHTML = mcWorkerMockCards();
+    return;
+  }
+  try {
+    const [settle, detail, bookings] = await Promise.all([
+      mcApi.settlement(uid),
+      mcApi.getWorker(uid),
+      mcApi.listBookings({ workerId: uid }),
+    ]);
+    mcSetText('mcWkEarn', won(settle.totalPayout));
+    mcSetText('mcWkCount', `완료 근무 ${settle.completedCount}건`);
+    mcSetText('mcWkRating', `평점 ⭐ ${detail.profile?.ratingAvg ?? '-'}`);
+    mcSetText('mcWkGrade', `${detail.profile?.grade ?? ''}등급 · 활동중`);
+
+    const active = bookings.filter((b) => b.status !== 'CANCELED').reverse();
+    if (listEl) {
+      listEl.innerHTML = active.length
+        ? active.map(mcWorkerCardHtml).join('')
+        : `<div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">아직 배정된 근무가 없습니다</div>`;
+    }
+  } catch (e) {
+    console.warn('근무자 데이터 로드 실패:', e);
+    if (listEl) listEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">불러오기 실패</div>`;
+  }
+}
+
+// 배정 근무 카드 (상태별 액션: 근무 시작 / 완료)
+function mcWorkerCardHtml(b) {
+  const hourly = GRADES[b.grade]?.price || 0;
+  const payout = Math.round(hourly * b.hours * 0.85);
+  const st = {
+    MATCHED: ['배정됨', '#FCEFE9', 'var(--mc-terra-2)'],
+    IN_PROGRESS: ['근무중', '#E9F0EC', 'var(--mc-pine)'],
+    DONE: ['완료', '#EEF2F6', '#5A6B7B'],
+  }[b.status] || [b.status, '#eee', '#888'];
+  let action = '';
+  if (b.status === 'MATCHED')
+    action = `<button class="mc-rq-accept" style="width:100%;margin-top:10px" onclick="mcWorkerCheckIn('${b.id}', this)">근무 시작 (GPS 출근)</button>`;
+  else if (b.status === 'IN_PROGRESS')
+    action = `<button class="mc-rq-accept" style="width:100%;margin-top:10px;background:var(--mc-pine)" onclick="mcWorkerComplete('${b.id}', this)">근무 완료</button>`;
+  return `
+    <div class="mc-request-card" data-bid="${b.id}">
+      <div class="mc-rq-top">
+        <div><h4>${CHILD_AGES[b.childAge] || '아이'} 돌봄</h4><div class="mc-rq-meta">${b.date} ${b.startTime} · ${b.hours}시간 · ${b.grade}등급</div></div>
+        <span class="mc-rq-badge" style="background:${st[1]};color:${st[2]}">${st[0]}</span>
+      </div>
+      <div class="mc-rq-meta">📍 ${b.address}</div>
+      <div style="margin-top:6px" class="mc-rq-pay">정산 예정 ${won(payout)}</div>
+      ${action}
+    </div>`;
+}
+
+async function mcWorkerCheckIn(bid, btn) {
+  btn.disabled = true; btn.textContent = '처리 중…';
+  try { await mcApi.checkIn(bid); await mcLoadWorker(); }
+  catch (e) { alert('근무 시작 실패: ' + e.message); btn.disabled = false; btn.textContent = '근무 시작 (GPS 출근)'; }
+}
+async function mcWorkerComplete(bid, btn) {
+  btn.disabled = true; btn.textContent = '처리 중…';
+  try { await mcApi.complete(bid); await mcLoadWorker(); }
+  catch (e) { alert('근무 완료 실패: ' + e.message); btn.disabled = false; btn.textContent = '근무 완료'; }
+}
+
+// 오프라인 데모용 목업 카드
+function mcWorkerMockCards() {
+  return `
+    <div class="mc-request-card">
+      <div class="mc-rq-top"><div><h4>신생아 돌봄</h4><div class="mc-rq-meta">2026-07-12 09:00 · 3시간 · A등급</div></div><span class="mc-rq-badge">배정됨</span></div>
+      <div class="mc-rq-meta">📍 서울시 강남구</div>
+      <div style="margin-top:6px" class="mc-rq-pay">정산 예정 127,500원</div>
+    </div>`;
 }
 
 function mcResetAndHome() {
