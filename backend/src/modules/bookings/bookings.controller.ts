@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateCareLogDto } from './dto/create-care-log.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -33,6 +34,21 @@ export class BookingsController {
   @Get('worker/:workerId/settlement')
   settlement(@Param('workerId') workerId: string) {
     return this.bookings.settlement(workerId);
+  }
+
+  // 육아일지 작성 (근무자) / 조회
+  @Post(':id/care-log')
+  addCareLog(
+    @Param('id') id: string,
+    @Body() dto: CreateCareLogDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.bookings.addCareLog(id, user.sub, dto);
+  }
+
+  @Get(':id/care-log')
+  careLog(@Param('id') id: string) {
+    return this.bookings.listCareLog(id);
   }
 
   // 상세

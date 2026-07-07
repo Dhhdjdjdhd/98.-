@@ -89,6 +89,16 @@ export interface Payment {
   createdAt: string;
 }
 
+// 육아일지 기록 (근무자가 근무 중 작성)
+export interface CareLogEntry {
+  id: string;
+  bookingId: string;
+  workerId: string;
+  type: string; // feeding, diaper, sleep, bath, play, meal, note ...
+  note: string;
+  createdAt: string; // KST
+}
+
 // 업로드 파일 (이미지 base64 data URL 저장)
 export interface FileDoc {
   id: string;

@@ -11,11 +11,12 @@ import {
   PaymentStatus,
   Role,
 } from '../../common/enums';
-import { Booking, Payment } from '../../common/models';
+import { Booking, Payment, CareLogEntry } from '../../common/models';
 import { genId } from '../../common/util/id.util';
 import { nowKst } from '../../common/util/kst.util';
 import { priceBooking } from '../../common/pricing';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateCareLogDto } from './dto/create-care-log.dto';
 
 @Injectable()
 export class BookingsService {
@@ -183,6 +184,29 @@ export class BookingsService {
     if (filter.parentId) bookings = bookings.filter((b) => b.parentId === filter.parentId);
     if (filter.workerId) bookings = bookings.filter((b) => b.workerId === filter.workerId);
     return bookings;
+  }
+
+  // ---- 육아일지 ----
+  async addCareLog(bookingId: string, workerId: string, dto: CreateCareLogDto) {
+    await this.getBooking(bookingId); // 존재 확인
+    const entry: CareLogEntry = {
+      id: genId('log'),
+      bookingId,
+      workerId,
+      type: dto.type,
+      note: dto.note ?? '',
+      createdAt: nowKst(),
+    };
+    await this.db.insert(COLLECTIONS.CARE_LOGS, entry);
+    return entry;
+  }
+
+  async listCareLog(bookingId: string) {
+    const logs = await this.db.find<CareLogEntry>(
+      COLLECTIONS.CARE_LOGS,
+      (l) => l.bookingId === bookingId,
+    );
+    return logs.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
   // ---- 근무자 정산 요약 ----

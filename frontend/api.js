@@ -123,6 +123,14 @@ const mcApi = {
     return this._post('/reviews', payload);
   },
 
+  // ---- 육아일지 ----
+  addCareLog(bookingId, type, note) {
+    return this._post(`/bookings/${bookingId}/care-log`, { type, note });
+  },
+  listCareLog(bookingId) {
+    return this._get(`/bookings/${bookingId}/care-log`);
+  },
+
   // ---- 서류 파일 ----
   uploadFile(kind, dataUrl, mimeType) {
     return this._post('/files', { kind, dataUrl, mimeType });

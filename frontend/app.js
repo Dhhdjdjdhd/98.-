@@ -16,6 +16,8 @@ const mcState = {
   reviewTags: [],
   bookingId: null,      // 실서버 예약 id (연동 시)
   matchedWorker: null,  // 실서버 매칭 근무자 (연동 시)
+  workerBookingId: null, // 근무자가 육아일지 작성 중인 예약
+  viewBookingId: null,   // 부모가 열람 중인 예약(육아일지)
 };
 
 const GRADES = {
@@ -33,6 +35,16 @@ const CHILD_AGES = {
   INFANT: '영아',
   TODDLER: '돌 이후',
 };
+
+// 육아일지 활동 종류
+const CARE_TYPES = [
+  { key: 'feeding', label: '수유', icon: '🍼' },
+  { key: 'diaper', label: '기저귀', icon: '🧷' },
+  { key: 'sleep', label: '수면', icon: '💤' },
+  { key: 'bath', label: '목욕', icon: '🛁' },
+  { key: 'play', label: '놀이', icon: '🧸' },
+  { key: 'meal', label: '이유식', icon: '🥣' },
+];
 
 // ------------------------------------------------------------
 // 화면 정의: 각 함수는 {body, foot} HTML을 반환
@@ -145,6 +157,32 @@ const SCREENS = {
     onEnter: () => mcLoadBookings(),
   }),
 
+  // 부모: 육아일지 열람 (읽기 전용)
+  'parent-carelog': () => ({
+    body: `
+      ${backBar('parent-bookings', '육아일지')}
+      <div class="mc-q-sub" style="margin-bottom:14px">담당 전문가가 기록한 돌봄 내역입니다</div>
+      <div id="mcCareLogView" class="mc-timeline-log"><div style="font-size:13px;color:var(--mc-muted)">불러오는 중…</div></div>`,
+    foot: '',
+    onEnter: () => mcLoadCareLog('mcCareLogView', mcState.viewBookingId),
+  }),
+
+  // 근무자: 육아일지 작성
+  'worker-carelog': () => ({
+    body: `
+      ${backBar('worker-home', '육아일지 작성')}
+      <div class="mc-q-sub" style="margin-bottom:14px">활동을 누르면 현재 시각으로 기록됩니다</div>
+      <div class="mc-slots" style="grid-template-columns:repeat(3,1fr)">
+        ${CARE_TYPES.map((t) => `<button class="mc-slot" onclick="mcAddCareLog('${t.key}')">${t.icon} ${t.label}</button>`).join('')}
+      </div>
+      <div class="mc-field" style="margin-top:16px"><label>메모 (선택 — 활동 버튼과 함께 기록됨)</label><input id="mcCareNote" placeholder="예) 120ml 수유"></div>
+      <button class="mc-live-btn" style="width:100%" onclick="mcAddCareLog('note')">📝 메모만 기록</button>
+      <div class="mc-app-label">작성된 기록</div>
+      <div id="mcCareLogList" class="mc-timeline-log"><div style="font-size:13px;color:var(--mc-muted)">불러오는 중…</div></div>`,
+    foot: `<button class="mc-app-next" onclick="mcWorkerCompleteFromLog()">근무 완료</button>`,
+    onEnter: () => mcLoadCareLog('mcCareLogList', mcState.workerBookingId),
+  }),
+
   'parent-grade': () => ({
     body: `
       ${backBar('parent-home', '전문가 등급 선택')}
@@ -215,7 +253,6 @@ const SCREENS = {
   'parent-pay': () => {
     const base = mcState.grade.price * mcState.hours;
     const fee = Math.round(base * 0.15);
-    const total = base + fee;
     return {
       body: `
         ${backBar('parent-address', '결제')}
@@ -230,12 +267,12 @@ const SCREENS = {
         </div>
         <div class="mc-receipt">
           <div class="mc-receipt-row"><span>시급 ${won(mcState.grade.price)} × ${mcState.hours}시간</span><b>${won(base)}</b></div>
-          <div class="mc-receipt-row"><span>플랫폼 수수료 (15%)</span><b>${won(fee)}</b></div>
-          <div class="mc-receipt-total"><span>총 결제금액</span><b>${won(total)}</b></div>
+          <div class="mc-receipt-total"><span>총 결제금액</span><b>${won(base)}</b></div>
         </div>
+        <div style="font-size:11.5px;color:var(--mc-muted);margin:-6px 2px 16px">※ 플랫폼 수수료 15%(${won(fee)})는 근무자 정산에서 차감됩니다.</div>
         <div class="mc-app-label">결제 수단</div>
         <div class="mc-opt mc-sel"><span class="mc-opt-ic">💳</span><span class="mc-opt-t"><b>신한카드 ****1234</b><span>등록된 기본 카드</span></span></div>`,
-      foot: `<button class="mc-app-next" onclick="mcGo('parent-matching')">${won(total)} 결제하고 매칭</button>`,
+      foot: `<button class="mc-app-next" onclick="mcGo('parent-matching')">${won(base)} 결제하고 매칭</button>`,
     };
   },
 
@@ -304,14 +341,17 @@ const SCREENS = {
         <button class="mc-live-btn mc-emergency" onclick="alert('🚨 응급신고가 접수되었습니다 (프로토타입)')">🚨 응급신고</button>
       </div>
       <div class="mc-app-label">실시간 육아일지</div>
-      <div class="mc-timeline-log">
-        <div class="mc-log-item"><span class="mc-log-time">${mcState.time}</span><span class="mc-log-txt">✅ GPS 출근 체크 완료</span></div>
-        <div class="mc-log-item"><span class="mc-log-time">+20분</span><span class="mc-log-txt">🍼 분유 120ml 수유 완료</span></div>
-        <div class="mc-log-item"><span class="mc-log-time">+45분</span><span class="mc-log-txt">💤 트림 후 재우기 성공</span></div>
-        <div class="mc-log-item"><span class="mc-log-time">+70분</span><span class="mc-log-txt">🧷 기저귀 교환</span></div>
-      </div>`,
+      <div id="mcParentCareLog" class="mc-timeline-log"><div style="font-size:13px;color:var(--mc-muted)">불러오는 중…</div></div>`,
     foot: `<button class="mc-app-next" onclick="mcGo('parent-review')">근무 종료 · 리뷰 남기기</button>`,
-    onEnter: () => { if (mcApi.live && mcState.bookingId) mcApi.checkIn(mcState.bookingId).catch(() => {}); },
+    onEnter: async () => {
+      if (mcApi.live && mcState.bookingId) {
+        try { await mcApi.checkIn(mcState.bookingId); } catch (e) {}
+        mcLoadCareLog('mcParentCareLog', mcState.bookingId);
+      } else {
+        const el = document.getElementById('mcParentCareLog');
+        if (el) el.innerHTML = `<div class="mc-log-item"><span class="mc-log-time">${mcState.time || '09:00'}</span><span class="mc-log-txt">✅ GPS 출근 체크 완료 (데모)</span></div>`;
+      }
+    },
   }),
 
   'parent-review': () => ({
@@ -678,7 +718,10 @@ function mcWorkerCardHtml(b) {
   if (b.status === 'MATCHED')
     action = `<button class="mc-rq-accept" style="width:100%;margin-top:10px" onclick="mcWorkerCheckIn('${b.id}', this)">근무 시작 (GPS 출근)</button>`;
   else if (b.status === 'IN_PROGRESS')
-    action = `<button class="mc-rq-accept" style="width:100%;margin-top:10px;background:var(--mc-pine)" onclick="mcWorkerComplete('${b.id}', this)">근무 완료</button>`;
+    action = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+      <button class="mc-live-btn" onclick="mcOpenCareLog('${b.id}')">📝 육아일지</button>
+      <button class="mc-rq-accept" style="background:var(--mc-pine)" onclick="mcWorkerComplete('${b.id}', this)">근무 완료</button>
+    </div>`;
   return `
     <div class="mc-request-card" data-bid="${b.id}">
       <div class="mc-rq-top">
@@ -782,7 +825,8 @@ function mcBookingCardHtml(b, showRebook) {
       </div>
       <div class="mc-rq-meta">📍 ${b.address}</div>
       <div style="margin-top:6px" class="mc-rq-pay">이용 금액 ${won(amount)}</div>
-      ${showRebook ? `<button class="mc-live-btn" style="width:100%;margin-top:10px" onclick="mcRebook('${b.grade}')">같은 등급으로 재예약</button>` : ''}
+      ${(b.status === 'DONE' || b.status === 'IN_PROGRESS') ? `<button class="mc-live-btn" style="width:100%;margin-top:8px" onclick="mcViewCareLog('${b.id}')">📝 육아일지 보기</button>` : ''}
+      ${showRebook ? `<button class="mc-live-btn" style="width:100%;margin-top:8px" onclick="mcRebook('${b.grade}')">같은 등급으로 재예약</button>` : ''}
     </div>`;
 }
 
@@ -839,6 +883,61 @@ async function mcAddFavorite() {
   if (!mcApi.live || !mcState.matchedWorker?.id) { alert('즐겨찾기에 추가되었습니다 ⭐ (데모)'); return; }
   try { await mcApi.addFavorite(mcState.matchedWorker.id); alert('즐겨찾기에 추가되었습니다 ⭐'); }
   catch (e) { alert('추가 실패: ' + e.message); }
+}
+
+// ------------------------------------------------------------
+// 육아일지 (근무자 작성 / 부모 열람)
+// ------------------------------------------------------------
+function mcCareLogItemHtml(log) {
+  const t = CARE_TYPES.find((x) => x.key === log.type);
+  const time = (log.createdAt || '').slice(11, 16); // 'YYYY-MM-DD HH:mm:ss' → HH:mm
+  const icon = t ? t.icon + ' ' : (log.type === 'note' ? '📝 ' : '');
+  return `<div class="mc-log-item"><span class="mc-log-time">${time}</span><span class="mc-log-txt">${icon}${log.note || (t ? t.label : '')}</span></div>`;
+}
+
+async function mcLoadCareLog(containerId, bookingId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!mcApi.live || !bookingId) { el.innerHTML = `<div style="font-size:13px;color:var(--mc-muted)">기록이 없습니다</div>`; return; }
+  try {
+    const logs = await mcApi.listCareLog(bookingId);
+    el.innerHTML = logs.length ? logs.map(mcCareLogItemHtml).join('') : `<div style="font-size:13px;color:var(--mc-muted)">아직 작성된 기록이 없습니다</div>`;
+  } catch (e) { el.innerHTML = `<div style="font-size:13px;color:var(--mc-muted)">불러오기 실패</div>`; }
+}
+
+// 근무자: 육아일지 화면 열기
+function mcOpenCareLog(bookingId) {
+  mcState.workerBookingId = bookingId;
+  mcGo('worker-carelog');
+}
+// 부모: 육아일지 열람
+function mcViewCareLog(bookingId) {
+  mcState.viewBookingId = bookingId;
+  mcGo('parent-carelog');
+}
+
+// 근무자: 기록 추가
+async function mcAddCareLog(type) {
+  const bid = mcState.workerBookingId;
+  if (!bid) { alert('근무를 먼저 선택하세요'); return; }
+  const noteEl = document.getElementById('mcCareNote');
+  const memo = (noteEl?.value || '').trim();
+  if (type === 'note' && !memo) { alert('메모를 입력하세요'); return; }
+  const note = memo || (CARE_TYPES.find((t) => t.key === type)?.label || '');
+  try {
+    await mcApi.addCareLog(bid, type, note);
+    if (noteEl) noteEl.value = '';
+    await mcLoadCareLog('mcCareLogList', bid);
+  } catch (e) { alert('기록 실패: ' + e.message); }
+}
+
+// 근무자: 육아일지 화면에서 근무 완료
+async function mcWorkerCompleteFromLog() {
+  const bid = mcState.workerBookingId;
+  if (mcApi.live && bid) {
+    try { await mcApi.complete(bid); } catch (e) { alert('완료 실패: ' + e.message); return; }
+  }
+  mcGo('worker-home');
 }
 
 // 랜딩의 역할 스위치 버튼 → 데모 계정 로그인
