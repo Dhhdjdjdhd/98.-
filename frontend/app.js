@@ -95,7 +95,10 @@ const SCREENS = {
       </div>
       <div class="mc-field" style="margin-top:14px"><label>희망 등급 (A/B/C/D)</label><input id="mcSwGrade" placeholder="B" value="B"></div>
       <div class="mc-field"><label>경력 (년)</label><input id="mcSwYears" type="number" placeholder="3" value="3"></div>
-      <div class="mc-field"><label>경력 요약</label><input id="mcSwNote" placeholder="예) 신생아실 3년"></div>`,
+      <div class="mc-field"><label>경력 요약</label><input id="mcSwNote" placeholder="예) 신생아실 3년"></div>
+      <div class="mc-app-label">서류 첨부 (이미지)</div>
+      <div class="mc-field"><label>면허/자격증</label><input type="file" accept="image/*" id="mcSwFileLicense" style="font-size:13px;padding:10px"></div>
+      <div class="mc-field"><label>신분증</label><input type="file" accept="image/*" id="mcSwFileId" style="font-size:13px;padding:10px"></div>`,
     foot: `<button class="mc-app-next" onclick="mcDoSignupWorker()">가입 신청 (승인 대기)</button>`,
   }),
 
@@ -516,9 +519,34 @@ async function mcLoadAdmin() {
       return;
     }
     list.innerHTML = pending.map(mcAdminCardHtml).join('');
+    mcLoadThumbs();
   } catch (e) {
     console.warn('관리자 데이터 로드 실패:', e);
   }
+}
+
+// 검수 카드의 서류 썸네일 로드 (파일 조회 → img src 설정)
+function mcLoadThumbs() {
+  document.querySelectorAll('.mc-doc-thumb').forEach(async (img) => {
+    if (img.dataset.loaded) return;
+    img.dataset.loaded = '1';
+    try {
+      const f = await mcApi.getFile(img.dataset.fid);
+      img.src = f.dataUrl;
+    } catch (e) { console.warn('썸네일 로드 실패:', e); }
+  });
+}
+
+// 서류 이미지 크게 보기 (오버레이)
+async function mcViewFile(fid) {
+  try {
+    const f = await mcApi.getFile(fid);
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99999;display:grid;place-items:center;padding:24px;cursor:zoom-out';
+    ov.innerHTML = `<img src="${f.dataUrl}" style="max-width:92%;max-height:92%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.5)">`;
+    ov.onclick = () => ov.remove();
+    document.body.appendChild(ov);
+  } catch (e) { alert('이미지 로드 실패: ' + e.message); }
 }
 
 // 실서버 근무자 → 검수 카드 HTML
@@ -539,6 +567,9 @@ function mcAdminCardHtml(w) {
         ${chip(d.childAbuseCheck, '아동학대')}
         ${chip(d.healthCert, '보건증')}
       </div>
+      ${w.docFiles && Object.keys(w.docFiles).length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${Object.entries(w.docFiles).map(([kind, fid]) => `<img class="mc-doc-thumb" data-fid="${fid}" title="${kind}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--mc-line);cursor:pointer;background:var(--mc-ivory-2)" onclick="mcViewFile('${fid}')">`).join('')}
+      </div>` : ''}
       <div class="mc-approve-actions">
         <button class="mc-btn-reject" onclick="mcRejectLive('${w.userId}', this)">반려</button>
         <button class="mc-btn-approve" onclick="mcApproveLive('${w.userId}', this)">승인</button>
@@ -787,9 +818,48 @@ async function mcDoSignupWorker() {
   if (!payload.name || !payload.phone || !payload.password) { alert('이름·휴대폰·비밀번호를 입력하세요.'); return; }
   try {
     const u = await mcApi.signupWorker(payload);
+    // 서류 이미지 업로드 (선택된 것만, 자동 축소 후)
+    await mcUploadWorkerDoc('mcSwFileLicense', 'license');
+    await mcUploadWorkerDoc('mcSwFileId', 'idCard');
     alert('가입 신청 완료! 관리자 승인 후 활동할 수 있어요.');
     mcRouteAfterLogin(u.role);
   } catch (e) { alert('가입 실패: ' + e.message); }
+}
+
+// 파일 input에서 이미지 읽어 축소 후 업로드
+async function mcUploadWorkerDoc(inputId, kind) {
+  const file = document.getElementById(inputId)?.files?.[0];
+  if (!file) return;
+  try {
+    const dataUrl = await mcReadImageResized(file);
+    if (dataUrl) await mcApi.uploadFile(kind, dataUrl, 'image/jpeg');
+  } catch (e) { console.warn(`${kind} 업로드 실패:`, e); }
+}
+
+// 이미지 파일 → 최대 900px, JPEG 0.7로 축소한 data URL
+function mcReadImageResized(file, maxSize = 900, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          const scale = maxSize / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function mcLogout() {

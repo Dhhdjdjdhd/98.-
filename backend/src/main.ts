@@ -1,10 +1,14 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // 기본 body parser 끄고, 업로드(base64 이미지) 대비 크기 제한 상향
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  app.use(json({ limit: '8mb' }));
+  app.use(urlencoded({ extended: true, limit: '8mb' }));
 
   // 프론트엔드(프로토타입)에서 호출할 수 있도록 CORS 허용
   app.enableCors();

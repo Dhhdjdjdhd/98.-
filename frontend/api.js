@@ -117,6 +117,14 @@ const mcApi = {
     return this._post('/reviews', payload);
   },
 
+  // ---- 서류 파일 ----
+  uploadFile(kind, dataUrl, mimeType) {
+    return this._post('/files', { kind, dataUrl, mimeType });
+  },
+  getFile(id) {
+    return this._get(`/files/${id}`);
+  },
+
   // ---- 조회 ----
   getWorker(userId) {
     return this._get(`/workers/${userId}`);

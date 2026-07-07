@@ -49,6 +49,7 @@ export interface WorkerProfile {
   careerYears: number;
   careerNote: string; // 경력 요약 (예: '신생아실 7년')
   docs: WorkerDocs;
+  docFiles?: Record<string, string>; // 서류 종류 → 업로드된 파일 id
   status: WorkerStatus;
   rejectReason?: string;
   ratingAvg: number; // 평균 평점
@@ -84,6 +85,16 @@ export interface Payment {
   feeAmount: number; // 플랫폼 수수료
   workerPayout: number; // 근무자 정산액 (base - feeAmount)
   status: PaymentStatus;
+  createdAt: string;
+}
+
+// 업로드 파일 (이미지 base64 data URL 저장)
+export interface FileDoc {
+  id: string;
+  ownerId: string; // 업로드한 User.id
+  kind: string; // 서류 종류 (license, idCard, ...)
+  mimeType: string;
+  dataUrl: string; // data:image/...;base64,....
   createdAt: string;
 }
 
