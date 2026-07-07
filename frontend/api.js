@@ -6,7 +6,7 @@
 // 로컬(localhost/file://)에서는 로컬 백엔드, 배포 환경에서는 Azure 백엔드 URL 사용
 const MC_API_LOCAL = 'http://localhost:3000/api';
 // ↓↓↓ Render 배포 후, 실제 백엔드 URL로 교체하세요 (예: https://momcare-api.onrender.com/api)
-const MC_API_PROD = 'https://REPLACE-WITH-YOUR-BACKEND.onrender.com/api';
+const MC_API_PROD = 'https://momcare-api-9qr2.onrender.com/api';
 const MC_IS_LOCAL =
   ['localhost', '127.0.0.1', ''].includes(location.hostname) ||
   location.protocol === 'file:';
