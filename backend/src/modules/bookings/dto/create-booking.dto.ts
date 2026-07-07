@@ -6,13 +6,15 @@ import {
   Min,
   Max,
   Matches,
+  IsOptional,
 } from 'class-validator';
 import { Grade, ChildAge } from '../../../common/enums';
 
 export class CreateBookingDto {
+  // 로그인 토큰의 사용자로 자동 설정되므로 요청 본문에서는 선택
   @IsString()
-  @IsNotEmpty()
-  parentId: string; // User.id
+  @IsOptional()
+  parentId?: string; // User.id
 
   @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'date 형식은 YYYY-MM-DD 입니다.' })
   date: string;

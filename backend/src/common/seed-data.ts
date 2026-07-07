@@ -2,6 +2,7 @@
 // force=false: users 컬렉션이 비었을 때만 채움(배포 최초 부팅 시 자동 시드)
 // force=true : 기존 데이터 덮어씀(로컬 npm run seed)
 
+import * as bcrypt from 'bcryptjs';
 import { StorageService } from './storage/storage.interface';
 import {
   COLLECTIONS,
@@ -13,6 +14,9 @@ import {
 import { User, ParentProfile, WorkerProfile } from './models';
 import { genId } from './util/id.util';
 import { nowKst } from './util/kst.util';
+
+// 데모 계정 공통 비밀번호
+const DEMO_PW_HASH = bcrypt.hashSync('test1234', 10);
 
 export async function seedDatabase(
   db: StorageService,
@@ -34,6 +38,7 @@ export async function seedDatabase(
     role: Role.ADMIN,
     phone: '010-0000-0000',
     name: '관리자',
+    passwordHash: DEMO_PW_HASH,
     createdAt: now,
   });
 
@@ -43,6 +48,7 @@ export async function seedDatabase(
     role: Role.PARENT,
     phone: '010-1111-1111',
     name: '지민맘',
+    passwordHash: DEMO_PW_HASH,
     createdAt: now,
   };
   users.push(parentUser);
@@ -75,6 +81,7 @@ export async function seedDatabase(
       role: Role.WORKER,
       phone: `010-2222-000${i + 1}`,
       name: w.name,
+      passwordHash: DEMO_PW_HASH,
       createdAt: now,
     };
     users.push(u);

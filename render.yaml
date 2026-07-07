@@ -12,11 +12,13 @@ services:
     branch: main
     buildCommand: npm install && npm run build
     startCommand: npm run start:prod
-    healthCheckPath: /api/admin/summary
+    healthCheckPath: /api/health
     envVars:
       - key: MONGODB_URI
         sync: false         # ← 대시보드에서 Atlas 접속 문자열 입력
       - key: MONGODB_DB
         value: momcare
+      - key: JWT_SECRET
+        generateValue: true # Render가 안전한 랜덤값 자동 생성
       - key: NODE_VERSION
         value: "20.11.1"

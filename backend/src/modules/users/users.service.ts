@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { StorageService } from '../../common/storage/storage.interface';
 import { COLLECTIONS, Role, WorkerStatus } from '../../common/enums';
 import { User, ParentProfile, WorkerProfile } from '../../common/models';
@@ -10,6 +11,11 @@ import { RegisterWorkerDto } from './dto/register-worker.dto';
 @Injectable()
 export class UsersService {
   constructor(private readonly db: StorageService) {}
+
+  // 로그인용: 휴대폰으로 사용자 조회(비밀번호 해시 포함)
+  async findByPhone(phone: string): Promise<User | undefined> {
+    return this.db.findOne<User>(COLLECTIONS.USERS, (u) => u.phone === phone);
+  }
 
   // ---- 조회 헬퍼 ----
   async getUser(userId: string): Promise<User> {
@@ -57,6 +63,7 @@ export class UsersService {
       role: Role.PARENT,
       phone: dto.phone,
       name: dto.name,
+      passwordHash: bcrypt.hashSync(dto.password, 10),
       createdAt: now,
     };
     await this.db.insert(COLLECTIONS.USERS, user);
@@ -83,6 +90,7 @@ export class UsersService {
       role: Role.WORKER,
       phone: dto.phone,
       name: dto.name,
+      passwordHash: bcrypt.hashSync(dto.password, 10),
       createdAt: now,
     };
     await this.db.insert(COLLECTIONS.USERS, user);

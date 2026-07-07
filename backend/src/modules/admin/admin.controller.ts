@@ -1,8 +1,14 @@
-import { Controller, Post, Get, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Patch, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { ReviewDocsDto, RejectDto } from './dto/review-docs.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../../common/enums';
 
-// 프로토타입 단계: 인증/권한 가드는 생략(추후 AdminGuard 추가 예정)
+// 관리자 전용: 로그인 + ADMIN 역할 필수
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}

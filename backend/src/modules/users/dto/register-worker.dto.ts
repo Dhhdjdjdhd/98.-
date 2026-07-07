@@ -6,6 +6,7 @@ import {
   Min,
   Max,
   IsOptional,
+  MinLength,
 } from 'class-validator';
 import { Grade, LicenseType } from '../../../common/enums';
 
@@ -13,6 +14,10 @@ export class RegisterWorkerDto {
   @IsString()
   @IsNotEmpty()
   phone: string;
+
+  @IsString()
+  @MinLength(4, { message: '비밀번호는 4자 이상이어야 합니다.' })
+  password: string;
 
   @IsString()
   @IsNotEmpty()

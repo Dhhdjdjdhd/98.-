@@ -41,7 +41,9 @@ export class BookingsService {
 
   // ---- 1. 예약 생성 (결제 대기) ----
   async create(dto: CreateBookingDto) {
-    const parent = await this.users.getUser(dto.parentId);
+    const parentId = dto.parentId;
+    if (!parentId) throw new BadRequestException('로그인이 필요합니다.');
+    const parent = await this.users.getUser(parentId);
     if (parent.role !== Role.PARENT) {
       throw new BadRequestException('부모 계정만 예약할 수 있습니다.');
     }
@@ -49,7 +51,7 @@ export class BookingsService {
     const now = nowKst();
     const booking: Booking = {
       id: genId('bk'),
-      parentId: dto.parentId,
+      parentId: parentId,
       date: dto.date,
       startTime: dto.startTime,
       hours: dto.hours,

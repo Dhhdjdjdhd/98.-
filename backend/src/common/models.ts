@@ -17,6 +17,7 @@ export interface User {
   role: Role;
   phone: string;
   name: string;
+  passwordHash?: string; // bcrypt 해시 (응답 시 제외)
   createdAt: string; // KST 'YYYY-MM-DD HH:mm:ss'
 }
 

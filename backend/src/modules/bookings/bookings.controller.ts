@@ -1,15 +1,23 @@
-import { Controller, Post, Get, Body, Param, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { Role } from '../../common/enums';
 
+// 예약 API 전체 로그인 필수
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 
-  // 예약 생성 (결제 대기)
+  // 예약 생성 (부모만) — parentId는 토큰에서 주입
+  @Roles(Role.PARENT)
   @Post()
-  create(@Body() dto: CreateBookingDto) {
-    return this.bookings.create(dto);
+  create(@Body() dto: CreateBookingDto, @CurrentUser() user: AuthUser) {
+    return this.bookings.create({ ...dto, parentId: user.sub });
   }
 
   // 목록 (?parentId= / ?workerId=)

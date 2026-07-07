@@ -1,12 +1,14 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('reviews')
 export class ReviewsController {
   constructor(private readonly reviews: ReviewsService) {}
 
-  // 리뷰 작성
+  // 리뷰 작성 (로그인 필수)
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() dto: CreateReviewDto) {
     return this.reviews.create(dto);
