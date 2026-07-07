@@ -78,6 +78,12 @@ const mcApi = {
     return r.json();
   },
 
+  async _delete(path) {
+    const r = await fetch(`${MC_API_BASE}${path}`, { method: 'DELETE', headers: this._authHeaders() });
+    if (!r.ok) throw new Error(`DELETE ${path} → ${r.status}`);
+    return r.json();
+  },
+
   // ---- 인증 ----
   async login(phone, password) {
     const res = await this._post('/auth/login', { phone, password });
@@ -123,6 +129,17 @@ const mcApi = {
   },
   getFile(id) {
     return this._get(`/files/${id}`);
+  },
+
+  // ---- 즐겨찾기 ----
+  listFavorites() {
+    return this._get('/favorites');
+  },
+  addFavorite(workerId) {
+    return this._post(`/favorites/${workerId}`);
+  },
+  removeFavorite(workerId) {
+    return this._delete(`/favorites/${workerId}`);
   },
 
   // ---- 조회 ----

@@ -115,14 +115,15 @@ const SCREENS = {
         <span class="mc-go">예약 시작하기 →</span>
         <span class="mc-cta-emoji">🤱</span>
       </div>
-      <div class="mc-app-label">빠른 재예약</div>
-      <div class="mc-request-card" onclick="mcGo('parent-grade')" style="cursor:pointer">
-        <div class="mc-rq-top">
-          <div><h4>김서연 간호사</h4><div class="mc-rq-meta">지난 이용 · A등급 · ⭐4.9</div></div>
-          <span class="mc-rq-badge">즐겨찾기 ⭐</span>
-        </div>
-        <div class="mc-rq-meta">"신생아 케어가 정말 꼼꼼하셨어요"</div>
-      </div>
+      <button class="mc-opt" style="margin-bottom:4px" onclick="mcGo('parent-bookings')">
+        <span class="mc-opt-ic">📋</span>
+        <span class="mc-opt-t"><b>내 예약내역</b><span>지난 예약 보기 · 재예약</span></span>
+        <span style="color:var(--mc-muted)">›</span>
+      </button>
+      <div class="mc-app-label">⭐ 즐겨찾기 전문가</div>
+      <div id="mcParentFavs"><div style="font-size:13px;color:var(--mc-muted);padding:6px 2px">불러오는 중…</div></div>
+      <div class="mc-app-label">최근 예약</div>
+      <div id="mcParentRecent"><div style="font-size:13px;color:var(--mc-muted);padding:6px 2px">불러오는 중…</div></div>
       <div class="mc-app-label">전문가 등급 안내</div>
       <div class="mc-mini-grades">
         ${['A','B','C','D'].map(g => `
@@ -133,6 +134,15 @@ const SCREENS = {
           </div>`).join('')}
       </div>`,
     foot: `<button class="mc-app-next" onclick="mcGo('parent-grade')">예약하기</button>`,
+    onEnter: () => mcLoadParentHome(),
+  }),
+
+  'parent-bookings': () => ({
+    body: `
+      ${backBar('parent-home', '내 예약내역')}
+      <div id="mcBookingList"><div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">불러오는 중…</div></div>`,
+    foot: '',
+    onEnter: () => mcLoadBookings(),
   }),
 
   'parent-grade': () => ({
@@ -328,7 +338,7 @@ const SCREENS = {
         <div class="mc-done-check">✓</div>
         <h3>돌봄이 완료되었어요!</h3>
         <p>소중한 리뷰가 등록되었습니다.<br>김서연 간호사님을 즐겨찾기에 추가할까요?</p>
-        <button class="mc-btn-ghost" style="font-size:14px;padding:12px 22px" onclick="alert('즐겨찾기에 추가되었습니다 ⭐')">⭐ 즐겨찾기 추가</button>
+        <button class="mc-btn-ghost" style="font-size:14px;padding:12px 22px" onclick="mcAddFavorite()">⭐ 즐겨찾기 추가</button>
       </div>`,
     foot: `<button class="mc-app-next" onclick="mcResetAndHome()">처음으로 돌아가기</button>`,
   }),
@@ -748,6 +758,87 @@ async function mcSubmitReview() {
     }
   }
   mcGo('parent-done');
+}
+
+// ------------------------------------------------------------
+// 부모 편의 (예약내역 · 재예약 · 즐겨찾기)
+// ------------------------------------------------------------
+const MC_BOOKING_STATUS = {
+  REQUESTED: ['결제대기', '#FBF1E0', '#B57F2E'],
+  MATCHED: ['매칭완료', '#FCEFE9', 'var(--mc-terra-2)'],
+  IN_PROGRESS: ['근무중', '#E9F0EC', 'var(--mc-pine)'],
+  DONE: ['완료', '#EEF2F6', '#5A6B7B'],
+  CANCELED: ['취소', '#F3EDED', '#B0757A'],
+};
+
+function mcBookingCardHtml(b, showRebook) {
+  const st = MC_BOOKING_STATUS[b.status] || [b.status, '#eee', '#888'];
+  const amount = (GRADES[b.grade]?.price || 0) * b.hours;
+  return `
+    <div class="mc-request-card">
+      <div class="mc-rq-top">
+        <div><h4>${CHILD_AGES[b.childAge] || '아이'} 돌봄 · ${b.grade}등급</h4><div class="mc-rq-meta">${b.date} ${b.startTime} · ${b.hours}시간</div></div>
+        <span class="mc-rq-badge" style="background:${st[1]};color:${st[2]}">${st[0]}</span>
+      </div>
+      <div class="mc-rq-meta">📍 ${b.address}</div>
+      <div style="margin-top:6px" class="mc-rq-pay">이용 금액 ${won(amount)}</div>
+      ${showRebook ? `<button class="mc-live-btn" style="width:100%;margin-top:10px" onclick="mcRebook('${b.grade}')">같은 등급으로 재예약</button>` : ''}
+    </div>`;
+}
+
+function mcFavCardHtml(f) {
+  return `
+    <div class="mc-mini-grade" style="justify-content:space-between">
+      <div class="mc-mg-badge" style="background:${GRADES[f.grade]?.badge || '#888'}">${f.grade || '-'}</div>
+      <div class="mc-mg-info" style="flex:1"><b>${f.name || '전문가'} ${f.licenseType || ''}</b><span>${f.careerNote || ''} · ⭐${f.ratingAvg ?? '-'}</span></div>
+      <button class="mc-live-btn" style="padding:8px 12px;font-size:13px" onclick="mcRebook('${f.grade}')">예약</button>
+      <button class="mc-back" style="width:30px;height:30px;font-size:14px;margin-left:6px" onclick="mcRemoveFav('${f.userId}', this)" title="즐겨찾기 해제">✕</button>
+    </div>`;
+}
+
+async function mcLoadParentHome() {
+  const uid = mcApi.user?.id;
+  const favEl = document.getElementById('mcParentFavs');
+  const recentEl = document.getElementById('mcParentRecent');
+  if (!mcApi.live || !uid) {
+    if (favEl) favEl.innerHTML = `<div style="font-size:13px;color:var(--mc-muted);padding:6px 2px">데모 모드 — 로그인 시 실데이터 표시</div>`;
+    if (recentEl) recentEl.innerHTML = `<div class="mc-request-card" onclick="mcGo('parent-grade')" style="cursor:pointer"><div class="mc-rq-top"><div><h4>김서연 간호사</h4><div class="mc-rq-meta">지난 이용 · A등급 (데모)</div></div><span class="mc-rq-badge">데모</span></div></div>`;
+    return;
+  }
+  try {
+    const [favs, bookings] = await Promise.all([mcApi.listFavorites(), mcApi.listBookings({ parentId: uid })]);
+    if (favEl) favEl.innerHTML = favs.length ? favs.map(mcFavCardHtml).join('') : `<div style="font-size:13px;color:var(--mc-muted);padding:6px 2px">아직 즐겨찾기한 전문가가 없어요</div>`;
+    const recent = bookings.slice(-2).reverse();
+    if (recentEl) recentEl.innerHTML = recent.length ? recent.map((b) => mcBookingCardHtml(b, true)).join('') : `<div style="font-size:13px;color:var(--mc-muted);padding:6px 2px">아직 예약 내역이 없어요</div>`;
+  } catch (e) { console.warn('부모 홈 로드 실패:', e); }
+}
+
+async function mcLoadBookings() {
+  const uid = mcApi.user?.id;
+  const el = document.getElementById('mcBookingList');
+  if (!mcApi.live || !uid) { if (el) el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">데모 모드 — 로그인 시 실데이터 표시</div>`; return; }
+  try {
+    const bookings = (await mcApi.listBookings({ parentId: uid })).reverse();
+    el.innerHTML = bookings.length ? bookings.map((b) => mcBookingCardHtml(b, true)).join('') : `<div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">아직 예약 내역이 없어요</div>`;
+  } catch (e) { if (el) el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--mc-muted);font-size:14px">불러오기 실패</div>`; }
+}
+
+function mcRebook(gradeCode) {
+  mcState.grade = GRADES[gradeCode] || null;
+  mcState.date = null; mcState.time = null; mcState.hours = 2;
+  mcState.address = ''; mcState.childAge = null; mcState.bookingId = null; mcState.matchedWorker = null;
+  mcGo(mcState.grade ? 'parent-date' : 'parent-grade');
+}
+
+async function mcRemoveFav(workerId, btn) {
+  try { await mcApi.removeFavorite(workerId); btn.closest('.mc-mini-grade')?.remove(); }
+  catch (e) { alert('해제 실패: ' + e.message); }
+}
+
+async function mcAddFavorite() {
+  if (!mcApi.live || !mcState.matchedWorker?.id) { alert('즐겨찾기에 추가되었습니다 ⭐ (데모)'); return; }
+  try { await mcApi.addFavorite(mcState.matchedWorker.id); alert('즐겨찾기에 추가되었습니다 ⭐'); }
+  catch (e) { alert('추가 실패: ' + e.message); }
 }
 
 // 랜딩의 역할 스위치 버튼 → 데모 계정 로그인

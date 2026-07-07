@@ -8,6 +8,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { FilesModule } from './modules/files/files.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FilesModule } from './modules/files/files.module';
     BookingsModule,
     ReviewsModule,
     FilesModule, // 서류 파일 업로드
+    FavoritesModule, // 부모 즐겨찾기
   ],
   controllers: [HealthController], // 공개 헬스체크
   providers: [SeederService], // 빈 DB 자동 시드

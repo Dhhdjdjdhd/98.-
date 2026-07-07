@@ -27,6 +27,7 @@ export interface ParentProfile {
   userId: string;
   address: string;
   paymentMethod: string; // 프로토타입: 표시용 문자열 (예: '신한카드 ****1234')
+  favorites?: string[]; // 즐겨찾기한 근무자 User.id 목록
   createdAt: string;
 }
 
