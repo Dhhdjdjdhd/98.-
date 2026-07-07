@@ -1,8 +1,11 @@
 {
   "name": "momcare-backend",
   "version": "0.1.0",
-  "description": "맘케어 백엔드 (NestJS + 로컬 JSON 스토리지)",
+  "description": "맘케어 백엔드 (NestJS · 로컬 JSON / MongoDB 자동 전환)",
   "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
@@ -16,6 +19,7 @@
     "@nestjs/platform-express": "^10.4.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "mongodb": "^6.3.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

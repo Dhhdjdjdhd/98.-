@@ -1,0 +1,22 @@
+# Render Blueprint — 백엔드(NestJS) 자동 배포
+# Render 대시보드에서 "New → Blueprint"로 이 리포를 연결하면 아래 설정으로 배포됨.
+# MONGODB_URI는 보안값이라 대시보드에서 직접 입력한다(sync:false).
+
+services:
+  - type: web
+    name: momcare-api
+    runtime: node
+    rootDir: backend        # 모노레포의 backend 폴더만 배포
+    plan: free
+    region: singapore       # 한국에서 가장 가까운 무료 리전
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/admin/summary
+    envVars:
+      - key: MONGODB_URI
+        sync: false         # ← 대시보드에서 Atlas 접속 문자열 입력
+      - key: MONGODB_DB
+        value: momcare
+      - key: NODE_VERSION
+        value: "20.11.1"

@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { JsonDbService } from '../../common/storage/json-db.service';
+import { StorageService } from '../../common/storage/storage.interface';
 import { UsersService } from '../users/users.service';
 import {
   COLLECTIONS,
@@ -20,18 +20,18 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 @Injectable()
 export class BookingsService {
   constructor(
-    private readonly db: JsonDbService,
+    private readonly db: StorageService,
     private readonly users: UsersService,
   ) {}
 
-  private getBooking(id: string): Booking {
-    const booking = this.db.findById<Booking>(COLLECTIONS.BOOKINGS, id);
+  private async getBooking(id: string): Promise<Booking> {
+    const booking = await this.db.findById<Booking>(COLLECTIONS.BOOKINGS, id);
     if (!booking) throw new NotFoundException('예약을 찾을 수 없습니다.');
     return booking;
   }
 
-  private getPaymentByBooking(bookingId: string): Payment {
-    const payment = this.db.findOne<Payment>(
+  private async getPaymentByBooking(bookingId: string): Promise<Payment> {
+    const payment = await this.db.findOne<Payment>(
       COLLECTIONS.PAYMENTS,
       (p) => p.bookingId === bookingId,
     );
@@ -40,8 +40,8 @@ export class BookingsService {
   }
 
   // ---- 1. 예약 생성 (결제 대기) ----
-  create(dto: CreateBookingDto) {
-    const parent = this.users.getUser(dto.parentId);
+  async create(dto: CreateBookingDto) {
+    const parent = await this.users.getUser(dto.parentId);
     if (parent.role !== Role.PARENT) {
       throw new BadRequestException('부모 계정만 예약할 수 있습니다.');
     }
@@ -59,9 +59,8 @@ export class BookingsService {
       status: BookingStatus.REQUESTED,
       createdAt: now,
     };
-    this.db.insert(COLLECTIONS.BOOKINGS, booking);
+    await this.db.insert(COLLECTIONS.BOOKINGS, booking);
 
-    // 결제 내역 생성 (PENDING)
     const price = priceBooking(dto.grade, dto.hours);
     const payment: Payment = {
       id: genId('pay'),
@@ -74,52 +73,48 @@ export class BookingsService {
       status: PaymentStatus.PENDING,
       createdAt: now,
     };
-    this.db.insert(COLLECTIONS.PAYMENTS, payment);
+    await this.db.insert(COLLECTIONS.PAYMENTS, payment);
 
     return { booking, payment };
   }
 
   // ---- 2. 결제 완료 → 자동 매칭 ----
-  pay(bookingId: string) {
-    const booking = this.getBooking(bookingId);
+  async pay(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
     if (booking.status !== BookingStatus.REQUESTED) {
       throw new BadRequestException('결제 가능한 상태가 아닙니다.');
     }
-    const payment = this.getPaymentByBooking(bookingId);
-    this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
+    const payment = await this.getPaymentByBooking(bookingId);
+    await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
       status: PaymentStatus.PAID,
     });
 
-    // 자동 매칭 시도
-    const matched = this.autoMatch(booking);
-    return matched;
+    return this.autoMatch(booking);
   }
 
-  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 첫 번째 배정 ----
-  private autoMatch(booking: Booking) {
-    const candidates = this.users.findApprovedWorkersByGrade(booking.grade);
+  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정 ----
+  private async autoMatch(booking: Booking) {
+    const candidates = await this.users.findApprovedWorkersByGrade(booking.grade);
     if (candidates.length === 0) {
-      // 매칭 실패: 결제는 유지, 관리자 수동 매칭 대기
       return {
-        booking: this.getBooking(booking.id),
+        booking: await this.getBooking(booking.id),
         matched: false,
         message: '현재 매칭 가능한 근무자가 없습니다. 관리자 수동 매칭 대기 중입니다.',
       };
     }
-    // 프로토타입: 평점 높은 순 우선
     candidates.sort((a, b) => b.ratingAvg - a.ratingAvg);
     const worker = candidates[0];
 
-    const updated = this.db.update<Booking>(COLLECTIONS.BOOKINGS, booking.id, {
+    const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, booking.id, {
       workerId: worker.userId,
       status: BookingStatus.MATCHED,
     });
     return { booking: updated, matched: true, workerId: worker.userId };
   }
 
-  // ---- 3. 근무 시작 (GPS 출근 체크) ----
-  checkIn(bookingId: string) {
-    const booking = this.getBooking(bookingId);
+  // ---- 3. 근무 시작 (GPS 출근) ----
+  async checkIn(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
     if (booking.status !== BookingStatus.MATCHED) {
       throw new BadRequestException('매칭 완료 상태에서만 근무를 시작할 수 있습니다.');
     }
@@ -130,43 +125,41 @@ export class BookingsService {
   }
 
   // ---- 4. 근무 완료 (퇴근 + 정산) ----
-  complete(bookingId: string) {
-    const booking = this.getBooking(bookingId);
+  async complete(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
     if (booking.status !== BookingStatus.IN_PROGRESS) {
       throw new BadRequestException('근무 중 상태에서만 완료할 수 있습니다.');
     }
-    const updated = this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+    const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
       status: BookingStatus.DONE,
       checkOutAt: nowKst(),
     });
 
-    // 결제 → 정산 완료
-    const payment = this.getPaymentByBooking(bookingId);
-    this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
+    const payment = await this.getPaymentByBooking(bookingId);
+    await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
       status: PaymentStatus.SETTLED,
     });
 
-    // 근무자 완료 횟수 증가
-    if (booking.workerId) this.users.incrementCareCount(booking.workerId);
+    if (booking.workerId) await this.users.incrementCareCount(booking.workerId);
 
     return updated;
   }
 
   // ---- 5. 취소 (환불) ----
-  cancel(bookingId: string) {
-    const booking = this.getBooking(bookingId);
+  async cancel(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
     if ([BookingStatus.DONE, BookingStatus.CANCELED].includes(booking.status)) {
       throw new BadRequestException('이미 종료된 예약입니다.');
     }
-    const updated = this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+    const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
       status: BookingStatus.CANCELED,
     });
-    const payment = this.db.findOne<Payment>(
+    const payment = await this.db.findOne<Payment>(
       COLLECTIONS.PAYMENTS,
       (p) => p.bookingId === bookingId,
     );
     if (payment && payment.status === PaymentStatus.PAID) {
-      this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
+      await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
         status: PaymentStatus.REFUNDED,
       });
     }
@@ -174,29 +167,29 @@ export class BookingsService {
   }
 
   // ---- 조회 ----
-  detail(bookingId: string) {
-    const booking = this.getBooking(bookingId);
-    const payment = this.db.findOne<Payment>(
+  async detail(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
+    const payment = await this.db.findOne<Payment>(
       COLLECTIONS.PAYMENTS,
       (p) => p.bookingId === bookingId,
     );
     return { ...booking, payment };
   }
 
-  list(filter: { parentId?: string; workerId?: string }) {
-    let bookings = this.db.all<Booking>(COLLECTIONS.BOOKINGS);
+  async list(filter: { parentId?: string; workerId?: string }) {
+    let bookings = await this.db.all<Booking>(COLLECTIONS.BOOKINGS);
     if (filter.parentId) bookings = bookings.filter((b) => b.parentId === filter.parentId);
     if (filter.workerId) bookings = bookings.filter((b) => b.workerId === filter.workerId);
     return bookings;
   }
 
   // ---- 근무자 정산 요약 ----
-  settlement(workerUserId: string) {
-    const done = this.db.find<Booking>(
+  async settlement(workerUserId: string) {
+    const done = await this.db.find<Booking>(
       COLLECTIONS.BOOKINGS,
       (b) => b.workerId === workerUserId && b.status === BookingStatus.DONE,
     );
-    const payments = this.db.all<Payment>(COLLECTIONS.PAYMENTS);
+    const payments = await this.db.all<Payment>(COLLECTIONS.PAYMENTS);
     const bookingIds = new Set(done.map((b) => b.id));
     const settled = payments.filter(
       (p) => bookingIds.has(p.bookingId) && p.status === PaymentStatus.SETTLED,
