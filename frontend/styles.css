@@ -515,3 +515,43 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* 스크롤 등장 애니메이션 */
 .mc-reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s ease, transform .7s ease; }
 .mc-reveal.mc-in { opacity: 1; transform: none; }
+
+/* ============================================================
+   모바일: 랜딩 숨기고 앱(로그인) 화면만 전체화면으로
+   (데스크톱은 기존 랜딩 + 폰 목업 그대로)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 마케팅 랜딩 영역 전부 숨김 (데모 섹션만 남김) */
+  .mc-nav,
+  .mc-hero,
+  .mc-mission,
+  .mc-flow-strip,
+  .mc-roadmap,
+  .mc-cta-banner,
+  .mc-footer,
+  .mc-section:not(.mc-demo),
+  .mc-demo-copy { display: none !important; }
+
+  /* 데모 섹션을 전체 화면으로 */
+  .mc-demo { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  .mc-demo-wrap { display: block !important; gap: 0 !important; max-width: none !important; }
+  .mc-phone-stage { display: block !important; }
+
+  /* 폰 목업 베젤 제거 → 앱이 화면을 꽉 채움 */
+  .mc-phone {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: var(--mc-ivory) !important;
+    box-shadow: none !important;
+  }
+  .mc-phone::after { display: none !important; } /* 노치 제거 */
+  .mc-screen {
+    border-radius: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+  .mc-app-status { display: none !important; } /* 실제 폰 상태바가 있으므로 숨김 */
+}
