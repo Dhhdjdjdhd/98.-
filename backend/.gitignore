@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+
+# 로컬 JSON 데이터 (실데이터는 커밋하지 않음, 폴더는 유지)
+data/*.json
+data/*.json.tmp
+!data/.gitkeep

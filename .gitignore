@@ -1,0 +1,18 @@
+# 의존성
+node_modules/
+
+# 백엔드 빌드 산출물
+backend/dist/
+*.tsbuildinfo
+
+# 로컬 JSON 데이터 (런타임 생성물 — 커밋 금지)
+backend/data/*.json
+backend/data/*.json.tmp
+
+# 환경변수
+.env
+
+# OS/에디터
+.DS_Store
+Thumbs.db
+.vscode/
