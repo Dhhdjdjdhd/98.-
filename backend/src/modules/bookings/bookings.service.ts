@@ -95,12 +95,44 @@ export class BookingsService {
     return this.autoMatch(booking);
   }
 
-  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정(거절자 제외) ----
+  // 'HH:mm' → 분 단위 정수
+  private timeToMin(t: string): number {
+    const [h, m] = (t || '0:0').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  }
+
+  // 두 예약의 근무 시간대가 겹치는지 (같은 날짜 + 구간 교차)
+  private overlaps(a: Booking, b: Booking): boolean {
+    if (a.date !== b.date) return false;
+    const aStart = this.timeToMin(a.startTime);
+    const aEnd = aStart + a.hours * 60;
+    const bStart = this.timeToMin(b.startTime);
+    const bEnd = bStart + b.hours * 60;
+    return aStart < bEnd && bStart < aEnd; // 경계 접촉(끝=시작)은 겹침 아님
+  }
+
+  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정(거절자·시간중복 제외) ----
   private async autoMatch(booking: Booking) {
     const rejected = new Set(booking.rejectedWorkerIds ?? []);
+
+    // 같은 날짜의 활성 예약(자기 자신 제외) 중 시간이 겹치면 그 근무자는 배정 불가
+    const activeSameDay = await this.db.find<Booking>(
+      COLLECTIONS.BOOKINGS,
+      (b) =>
+        b.id !== booking.id &&
+        b.date === booking.date &&
+        !!b.workerId &&
+        (b.status === BookingStatus.MATCHED || b.status === BookingStatus.IN_PROGRESS),
+    );
+    const busyWorkerIds = new Set(
+      activeSameDay
+        .filter((b) => this.overlaps(b, booking))
+        .map((b) => b.workerId as string),
+    );
+
     const candidates = (
       await this.users.findApprovedWorkersByGrade(booking.grade)
-    ).filter((w) => !rejected.has(w.userId));
+    ).filter((w) => !rejected.has(w.userId) && !busyWorkerIds.has(w.userId));
 
     if (candidates.length === 0) {
       // 배정 가능한 근무자가 없으면 매칭 대기 상태로 되돌린다.
