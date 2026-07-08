@@ -129,8 +129,29 @@ export function ParentHome() {
   );
 }
 
+// 즐겨찾기 추가/해제 토글 버튼 (전문가 화면 공용)
+function FavoriteButton({ workerId }: { workerId?: string }) {
+  const [faved, setFaved] = useState(false);
+  useEffect(() => {
+    if (!workerId || !api.isLoggedIn()) return;
+    api.listFavorites().then((fs: any) => setFaved(Array.isArray(fs) && fs.some((f: any) => f.userId === workerId))).catch(() => {});
+  }, [workerId]);
+  async function toggle() {
+    if (!workerId) return;
+    try {
+      if (faved) { await api.removeFavorite(workerId); setFaved(false); }
+      else { await api.addFavorite(workerId); setFaved(true); }
+    } catch (e: any) { alert('즐겨찾기 처리 실패: ' + e.message); }
+  }
+  return (
+    <button onClick={toggle} className={'w-full rounded-2xl border-[1.5px] py-3.5 text-[14px] font-bold transition ' + (faved ? 'border-terra bg-[#FCEFE9] text-terra-2' : 'border-line bg-cream text-pine hover:border-terra')}>
+      {faved ? '★ 즐겨찾기 됨 (해제)' : '☆ 즐겨찾기 추가'}
+    </button>
+  );
+}
+
 function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCode) => void; onCancel: (id: string) => void }) {
-  const { go, patch } = useApp();
+  const { go, patch, screen } = useApp();
   const st = BOOKING_STATUS[b.status] || [b.status, '#eee', '#888'];
   const amount = (GRADES[b.grade as GradeCode]?.price || 0) * b.hours;
   const [worker, setWorker] = useState<any>(null);
@@ -141,6 +162,11 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [b.id]);
+  function openDetail() {
+    // 이 예약 기준으로 담당 전문가 상세 이력 열기 (뒤로가기는 현재 화면)
+    patch({ bookingId: b.id, matchedWorker: null, detailBack: screen });
+    go('worker-detail');
+  }
   return (
     <div className="mb-3 rounded-2xl border border-line bg-cream p-4">
       <div className="mb-3 flex items-start justify-between">
@@ -153,12 +179,13 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
       <div className="text-[13px] text-muted">📍 {b.address}</div>
       {worker && (
         <div className="mt-2 rounded-xl bg-ivory-2 px-3 py-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0 text-[13px] leading-tight">
-              <div><span className="text-muted">담당</span> <b className="text-pine">{worker.name} {worker.licenseType}</b> · {worker.grade}등급</div>
-              <div className="mt-0.5 text-[12px] text-muted">⭐ {worker.ratingAvg} · {worker.careerNote || `경력 ${worker.careerYears}년`} · 돌봄 {worker.careCount}회</div>
-            </div>
-            <a href={`tel:${worker.phone}`} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-pine">📞 전화</a>
+          <div className="text-[13px] leading-tight">
+            <div><span className="text-muted">담당</span> <b className="text-pine">{worker.name} {worker.licenseType}</b> · {worker.grade}등급</div>
+            <div className="mt-0.5 text-[12px] text-muted">⭐ {worker.ratingAvg} · {worker.careerNote || `경력 ${worker.careerYears}년`} · 돌봄 {worker.careCount}회</div>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button onClick={openDetail} className="rounded-lg border border-line bg-white py-2 text-[13px] font-bold text-pine">📋 상세 이력</button>
+            <a href={`tel:${worker.phone}`} className="flex items-center justify-center rounded-lg border border-line bg-white py-2 text-[13px] font-bold text-pine">📞 전화</a>
           </div>
         </div>
       )}
@@ -346,8 +373,8 @@ export function AddressChild() {
     if (draft.address && draft.childAge) return;
     api.listBookings({ parentId: user.id }).then((list: any) => {
       if (Array.isArray(list) && list.length) {
-        // 예약 이력 있으면 가장 최근 예약의 주소·아이나이
-        const recent = [...list].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+        // 예약 이력 있으면 근무 예정일(date) 최신 예약의 주소·아이나이 (동일 날짜는 시작시간 비교)
+        const recent = [...list].sort((a, b) => String(`${b.date} ${b.startTime}`).localeCompare(`${a.date} ${a.startTime}`))[0];
         const opt = CHILD_AGE_OPTS.find(([, , , v]) => v === recent.childAge);
         patch({
           address: draft.address || recent.address || '',
@@ -536,11 +563,12 @@ export function Matched() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => go('worker-detail')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📋 상세 이력</button>
+          <button onClick={() => { patch({ detailBack: 'matched' }); go('worker-detail'); }} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📋 상세 이력</button>
           {w?.phone
             ? <a href={`tel:${w.phone}`} className="flex items-center justify-center rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</a>
             : <button onClick={() => alert('데모 모드에서는 전화 연결이 지원되지 않습니다.')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</button>}
         </div>
+        {draft.matchedWorker?.id && <div className="mt-2.5"><FavoriteButton workerId={draft.matchedWorker.id} /></div>}
         <button onClick={doRematch} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">🔄 다른 전문가로 변경</button>
         <button onClick={() => { resetDraft(); go('parent-home'); }} className="mt-2.5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
       </Body>
@@ -560,13 +588,13 @@ export function WorkerDetail() {
     const w = draft.matchedWorker;
     if (w?.id) {
       const p = w.profile || {};
-      setInfo({ name: w.name, licenseType: p.licenseType, grade: p.grade, ratingAvg: p.ratingAvg, careCount: p.careCount, careerYears: p.careerYears, careerNote: p.careerNote, docs: p.docs || {} });
+      setInfo({ workerId: w.id, name: w.name, licenseType: p.licenseType, grade: p.grade, ratingAvg: p.ratingAvg, careCount: p.careCount, careerYears: p.careerYears, careerNote: p.careerNote, docs: p.docs || {} });
       loadReviews(w.id);
     } else if (draft.bookingId) {
       // 매칭 임시정보가 없으면 예약ID로 담당자 재조회(견고성)
       api.bookingWorker(draft.bookingId).then((d: any) => {
         if (!d) return;
-        setInfo({ name: d.name, licenseType: d.licenseType, grade: d.grade, ratingAvg: d.ratingAvg, careCount: d.careCount, careerYears: d.careerYears, careerNote: d.careerNote, docs: d.docs || {} });
+        setInfo({ workerId: d.workerId, name: d.name, licenseType: d.licenseType, grade: d.grade, ratingAvg: d.ratingAvg, careCount: d.careCount, careerYears: d.careerYears, careerNote: d.careerNote, docs: d.docs || {} });
         loadReviews(d.workerId);
       }).catch(() => {});
     }
@@ -575,7 +603,7 @@ export function WorkerDetail() {
   if (!info) {
     return (
       <Body>
-        <TopBar back="matched" title="상세 이력" />
+        <TopBar back={draft.detailBack || 'matched'} title="상세 이력" />
         <div className="py-12 text-center text-[14px] text-muted">
           전문가 정보를 불러올 수 없습니다.
           <button onClick={goHome} className="mx-auto mt-4 block rounded-xl bg-pine px-5 py-2.5 text-[13px] font-bold text-white">🏠 홈으로</button>
@@ -587,7 +615,7 @@ export function WorkerDetail() {
   const docLabels: [string, string][] = [['license', '면허'], ['criminalCheck', '범죄경력'], ['childAbuseCheck', '아동학대'], ['healthCert', '보건증']];
   return (
     <Body>
-      <TopBar back="matched" title="상세 이력" />
+      <TopBar back={draft.detailBack || 'matched'} title="상세 이력" />
       {/* ① 프로필 + ② 핵심 지표 */}
       <div className="mb-4 rounded-[20px] border border-line bg-cream p-6 text-center">
         <div className="mx-auto mb-3 grid h-[80px] w-[80px] place-items-center rounded-full bg-gradient-to-br from-amber to-terra text-[36px]">👩‍⚕️</div>
@@ -599,6 +627,8 @@ export function WorkerDetail() {
           <div><b className="block font-serif text-xl text-pine">{info.careerYears ?? 0}년</b><span className="text-[11.5px] text-muted">경력</span></div>
         </div>
       </div>
+      {/* 즐겨찾기 */}
+      {info.workerId && <div className="mb-4"><FavoriteButton workerId={info.workerId} /></div>}
       {/* ③ 검증 뱃지 */}
       <Label>인증 현황</Label>
       <div className="mb-4 flex flex-wrap gap-1.5">

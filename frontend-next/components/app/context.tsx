@@ -24,6 +24,7 @@ export interface Draft {
   reviewTags: string[];
   workerBookingId?: string; // 근무자 육아일지 대상
   viewBookingId?: string;   // 부모 육아일지 열람 대상
+  detailBack?: ScreenName;  // 상세 이력 화면의 뒤로가기 목적지
 }
 
 const emptyDraft: Draft = { hours: 2, address: '', rating: 0, reviewTags: [] };
