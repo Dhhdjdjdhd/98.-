@@ -1,0 +1,20 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ivory text-ink font-sans antialiased;
+  }
+  ::selection {
+    @apply bg-terra text-white;
+  }
+}
+
+/* 앱 스크롤바 숨김 (폰 화면) */
+.mc-noscroll::-webkit-scrollbar {
+  width: 0;
+}
