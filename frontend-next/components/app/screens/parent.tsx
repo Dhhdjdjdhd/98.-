@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { won, pad2 } from '@/lib/utils';
 import { GRADES, GRADE_ORDER, GradeCode, CHILD_AGES, CHILD_AGE_OPTS, BOOKING_STATUS } from '@/lib/constants';
@@ -315,7 +315,10 @@ export function Pay() {
 
 export function Matching() {
   const { draft, patch, go } = useApp();
+  const started = useRef(false);
   useEffect(() => {
+    if (started.current) return; // StrictMode 이중 실행/재진입 시 예약 중복 생성 방지
+    started.current = true;
     let alive = true;
     (async () => {
       if (api.isLoggedIn()) {
