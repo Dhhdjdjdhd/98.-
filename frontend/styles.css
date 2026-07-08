@@ -517,41 +517,40 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .mc-reveal.mc-in { opacity: 1; transform: none; }
 
 /* ============================================================
-   모바일: 랜딩 숨기고 앱(로그인) 화면만 전체화면으로
-   (데스크톱은 기존 랜딩 + 폰 목업 그대로)
+   실제 모바일 기기: 랜딩 숨기고 앱(로그인) 화면만 전체화면으로
+   (기기 감지는 JS가 <html>에 .mc-mobile 클래스를 부여 — 창 크기 무관)
+   데스크톱은 창을 좁혀도 기존 랜딩 + 폰 목업 그대로 유지
    ============================================================ */
-@media (max-width: 768px) {
-  /* 마케팅 랜딩 영역 전부 숨김 (데모 섹션만 남김) */
-  .mc-nav,
-  .mc-hero,
-  .mc-mission,
-  .mc-flow-strip,
-  .mc-roadmap,
-  .mc-cta-banner,
-  .mc-footer,
-  .mc-section:not(.mc-demo),
-  .mc-demo-copy { display: none !important; }
+/* 마케팅 랜딩 영역 전부 숨김 (데모 섹션만 남김) */
+.mc-mobile .mc-nav,
+.mc-mobile .mc-hero,
+.mc-mobile .mc-mission,
+.mc-mobile .mc-flow-strip,
+.mc-mobile .mc-roadmap,
+.mc-mobile .mc-cta-banner,
+.mc-mobile .mc-footer,
+.mc-mobile .mc-section:not(.mc-demo),
+.mc-mobile .mc-demo-copy { display: none !important; }
 
-  /* 데모 섹션을 전체 화면으로 */
-  .mc-demo { padding: 0 !important; margin: 0 !important; max-width: none !important; }
-  .mc-demo-wrap { display: block !important; gap: 0 !important; max-width: none !important; }
-  .mc-phone-stage { display: block !important; }
+/* 데모 섹션을 전체 화면으로 */
+.mc-mobile .mc-demo { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+.mc-mobile .mc-demo-wrap { display: block !important; gap: 0 !important; max-width: none !important; }
+.mc-mobile .mc-phone-stage { display: block !important; }
 
-  /* 폰 목업 베젤 제거 → 앱이 화면을 꽉 채움 */
-  .mc-phone {
-    width: 100vw !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    padding: 0 !important;
-    border-radius: 0 !important;
-    background: var(--mc-ivory) !important;
-    box-shadow: none !important;
-  }
-  .mc-phone::after { display: none !important; } /* 노치 제거 */
-  .mc-screen {
-    border-radius: 0 !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-  }
-  .mc-app-status { display: none !important; } /* 실제 폰 상태바가 있으므로 숨김 */
+/* 폰 목업 베젤 제거 → 앱이 화면을 꽉 채움 */
+.mc-mobile .mc-phone {
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: var(--mc-ivory) !important;
+  box-shadow: none !important;
 }
+.mc-mobile .mc-phone::after { display: none !important; } /* 노치 제거 */
+.mc-mobile .mc-screen {
+  border-radius: 0 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+}
+.mc-mobile .mc-app-status { display: none !important; } /* 실제 폰 상태바가 있으므로 숨김 */

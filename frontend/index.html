@@ -6,6 +6,17 @@
 <title>맘케어(MomCare) — 의료전문가 기반 프리미엄 육아 매칭</title>
 <meta name="description" content="간호사·간호조무사 등 검증된 돌봄 전문가를 필요한 시간에 연결하는 프리미엄 육아 플랫폼">
 <link rel="stylesheet" href="styles.css">
+<script>
+  // 실제 모바일 기기 감지 → <html>에 mc-mobile 부여 (창 크기 무관, 폰만)
+  // body 렌더 전에 실행되어 랜딩이 깜빡이지 않음
+  (function () {
+    var ua = navigator.userAgent || '';
+    var isMobile =
+      (navigator.userAgentData && navigator.userAgentData.mobile === true) ||
+      /iPhone|iPod|Android.*Mobile|Windows Phone|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    if (isMobile) document.documentElement.classList.add('mc-mobile');
+  })();
+</script>
 </head>
 <body>
 
