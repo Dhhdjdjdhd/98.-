@@ -56,7 +56,7 @@ export function Login() {
             (live ? 'border-[#C9E0D2] bg-[#E9F0EC] text-pine' : 'border-line bg-[#EEF2F6] text-[#5A6B7B]')
           }
         >
-          {live ? '🟢 실서버 연동 중' : '🔵 서버 확인 중…'}
+          {live ? '🟢 실서버 연동 중' : '🔵 서버 준비 중… (첫 접속은 시간이 걸려요)'}
         </div>
       </div>
       <div className="mt-4">

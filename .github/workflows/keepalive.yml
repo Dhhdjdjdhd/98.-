@@ -1,0 +1,17 @@
+name: Keep API awake
+
+# Render 무료 플랜의 15분 슬립(콜드 스타트) 방지용 임시 워크플로.
+# 유료 플랜으로 전환하면 이 파일을 삭제하면 됩니다.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # 10분마다 (GitHub cron은 지연될 수 있어 15분 슬립보다 여유롭게)
+  workflow_dispatch: {} # 수동 실행 버튼
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health
+        # 콜드 스타트로 첫 응답이 느릴 수 있어 최대 60초 대기. 실패해도 잡을 실패시키지 않음.
+        run: curl -fsS --max-time 60 https://momcare-api-9qr2.onrender.com/api/health || true

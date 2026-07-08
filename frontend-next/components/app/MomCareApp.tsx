@@ -48,7 +48,18 @@ export function MomCareApp() {
     const u = api.getUser();
     if (api.isLoggedIn() && u) setInitialUser(u);
     setReady(true);
-    api.check().then(setLive);
+    // 서버 콜드 스타트 대비: 깨어날 때까지 재확인(폴링). 연결되면 자동으로 live=true
+    let cancelled = false;
+    let attempts = 0;
+    const poll = async () => {
+      const ok = await api.check();
+      if (cancelled) return;
+      if (ok) { setLive(true); return; }
+      attempts += 1;
+      if (attempts < 30) setTimeout(poll, 3000); // 최대 ~90초 동안 재시도
+    };
+    poll();
+    return () => { cancelled = true; };
   }, []);
 
   if (!ready) return <div className="flex min-h-0 flex-1 flex-col bg-ivory" />;
