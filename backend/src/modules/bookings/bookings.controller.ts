@@ -63,6 +63,20 @@ export class BookingsController {
     return this.bookings.pay(id);
   }
 
+  // 근무자 배정 수락 (근무자 본인만)
+  @Roles(Role.WORKER)
+  @Post(':id/accept')
+  accept(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.accept(id, user.sub);
+  }
+
+  // 근무자 배정 거절 → 재매칭 (근무자 본인만)
+  @Roles(Role.WORKER)
+  @Post(':id/reject')
+  reject(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.reject(id, user.sub);
+  }
+
   // 근무 시작(GPS 출근)
   @Post(':id/check-in')
   checkIn(@Param('id') id: string) {

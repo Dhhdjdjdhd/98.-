@@ -63,7 +63,7 @@ export interface WorkerProfile {
 export interface Booking {
   id: string;
   parentId: string; // User.id (role=PARENT)
-  workerId?: string; // User.id (role=WORKER), 매칭 후 채워짐
+  workerId?: string | null; // User.id (role=WORKER), 매칭 후 채워짐 (거절 재매칭 대기 시 null)
   date: string; // 'YYYY-MM-DD'
   startTime: string; // 'HH:mm'
   hours: number;
@@ -71,6 +71,8 @@ export interface Booking {
   childAge: ChildAge;
   grade: Grade; // 희망 등급
   status: BookingStatus;
+  workerAccepted?: boolean; // 근무자 수락 여부 (매칭 직후 false=대기, 수락 시 true)
+  rejectedWorkerIds?: string[]; // 배정을 거절한 근무자 User.id (재매칭 시 제외)
   checkInAt?: string; // GPS 출근 시각 (KST)
   checkOutAt?: string; // GPS 퇴근 시각 (KST)
   createdAt: string;

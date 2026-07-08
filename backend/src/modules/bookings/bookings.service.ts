@@ -95,12 +95,22 @@ export class BookingsService {
     return this.autoMatch(booking);
   }
 
-  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정 ----
+  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정(거절자 제외) ----
   private async autoMatch(booking: Booking) {
-    const candidates = await this.users.findApprovedWorkersByGrade(booking.grade);
+    const rejected = new Set(booking.rejectedWorkerIds ?? []);
+    const candidates = (
+      await this.users.findApprovedWorkersByGrade(booking.grade)
+    ).filter((w) => !rejected.has(w.userId));
+
     if (candidates.length === 0) {
+      // 배정 가능한 근무자가 없으면 매칭 대기 상태로 되돌린다.
+      const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, booking.id, {
+        workerId: null,
+        status: BookingStatus.REQUESTED,
+        workerAccepted: false,
+      });
       return {
-        booking: await this.getBooking(booking.id),
+        booking: updated,
         matched: false,
         message: '현재 매칭 가능한 근무자가 없습니다. 관리자 수동 매칭 대기 중입니다.',
       };
@@ -108,11 +118,39 @@ export class BookingsService {
     candidates.sort((a, b) => b.ratingAvg - a.ratingAvg);
     const worker = candidates[0];
 
+    // 근무자 수락 대기 상태로 배정 (workerAccepted=false)
     const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, booking.id, {
       workerId: worker.userId,
       status: BookingStatus.MATCHED,
+      workerAccepted: false,
     });
     return { booking: updated, matched: true, workerId: worker.userId };
+  }
+
+  // ---- 3-a. 근무자 배정 수락 ----
+  async accept(bookingId: string, workerId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.status !== BookingStatus.MATCHED || booking.workerId !== workerId) {
+      throw new BadRequestException('수락할 수 있는 배정이 아닙니다.');
+    }
+    if (booking.workerAccepted) {
+      throw new BadRequestException('이미 수락한 근무입니다.');
+    }
+    return this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+      workerAccepted: true,
+    });
+  }
+
+  // ---- 3-b. 근무자 배정 거절 → 거절자 제외하고 재매칭 ----
+  async reject(bookingId: string, workerId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.status !== BookingStatus.MATCHED || booking.workerId !== workerId) {
+      throw new BadRequestException('거절할 수 있는 배정이 아닙니다.');
+    }
+    const rejectedWorkerIds = [...(booking.rejectedWorkerIds ?? []), workerId];
+    await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, { rejectedWorkerIds });
+    const fresh = await this.getBooking(bookingId);
+    return this.autoMatch(fresh);
   }
 
   // ---- 3. 근무 시작 (GPS 출근) ----
@@ -120,6 +158,9 @@ export class BookingsService {
     const booking = await this.getBooking(bookingId);
     if (booking.status !== BookingStatus.MATCHED) {
       throw new BadRequestException('매칭 완료 상태에서만 근무를 시작할 수 있습니다.');
+    }
+    if (!booking.workerAccepted) {
+      throw new BadRequestException('예약을 먼저 수락해야 근무를 시작할 수 있습니다.');
     }
     return this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
       status: BookingStatus.IN_PROGRESS,

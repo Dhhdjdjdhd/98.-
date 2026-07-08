@@ -33,6 +33,13 @@ export function WorkerHome() {
     return () => { alive = false; };
   }, [live, user, tick]);
 
+  async function accept(id: string) {
+    try { await api.accept(id); setTick((t) => t + 1); } catch (e: any) { alert('수락 실패: ' + e.message); }
+  }
+  async function reject(id: string) {
+    if (!confirm('이 배정을 거절하시겠어요? 다른 근무자에게 재배정됩니다.')) return;
+    try { await api.reject(id); setTick((t) => t + 1); } catch (e: any) { alert('거절 실패: ' + e.message); }
+  }
   async function checkIn(id: string) {
     try { await api.checkIn(id); setTick((t) => t + 1); } catch (e: any) { alert('근무 시작 실패: ' + e.message); }
   }
@@ -61,8 +68,11 @@ export function WorkerHome() {
         : !data ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
         : data.bookings.length ? data.bookings.map((b) => {
             const st = b.status;
+            const accepted = !!b.workerAccepted;
             const payout = Math.round((GRADES[b.grade as GradeCode]?.price || 0) * b.hours * 0.85);
-            const label = st === 'MATCHED' ? ['배정됨', '#FCEFE9', '#C0532F'] : st === 'IN_PROGRESS' ? ['근무중', '#E9F0EC', '#16443C'] : ['완료', '#EEF2F6', '#5A6B7B'];
+            const label = st === 'MATCHED'
+              ? (accepted ? ['수락됨', '#E9F0EC', '#16443C'] : ['수락 대기', '#FCEFE9', '#C0532F'])
+              : st === 'IN_PROGRESS' ? ['근무중', '#E9F0EC', '#16443C'] : ['완료', '#EEF2F6', '#5A6B7B'];
             return (
               <div key={b.id} className="mb-3 rounded-2xl border border-line bg-cream p-4">
                 <div className="mb-3 flex items-start justify-between">
@@ -71,7 +81,13 @@ export function WorkerHome() {
                 </div>
                 <div className="text-[13px] text-muted">📍 {b.address}</div>
                 <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">정산 예정 {won(payout)}</div>
-                {st === 'MATCHED' && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작 (GPS 출근)</button>}
+                {st === 'MATCHED' && !accepted && (
+                  <div className="mt-2.5 grid grid-cols-[1fr_1.6fr] gap-2">
+                    <button onClick={() => reject(b.id)} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-muted">거절</button>
+                    <button onClick={() => accept(b.id)} className="rounded-xl bg-terra py-3 text-[14px] font-bold text-white">수락하기</button>
+                  </div>
+                )}
+                {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작 (GPS 출근)</button>}
                 {st === 'IN_PROGRESS' && (
                   <div className="mt-2.5 grid grid-cols-2 gap-2">
                     <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-carelog'); }} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지</button>

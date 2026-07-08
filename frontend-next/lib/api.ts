@@ -118,6 +118,8 @@ export const api = {
   // ---- 예약 ----
   createBooking: (payload: any) => post('/bookings', payload),
   pay: (id: string) => post(`/bookings/${id}/pay`),
+  accept: (id: string) => post(`/bookings/${id}/accept`),
+  reject: (id: string) => post(`/bookings/${id}/reject`),
   checkIn: (id: string) => post(`/bookings/${id}/check-in`),
   complete: (id: string) => post(`/bookings/${id}/complete`),
   listBookings: (params: Record<string, string> = {}) => {
