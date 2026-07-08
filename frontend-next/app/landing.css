@@ -139,13 +139,15 @@ body::before {
 .mc-step h4 { font-size: 20px; font-weight: 800; color: var(--mc-pine); margin-bottom: 10px; }
 .mc-step p { font-size: 15px; color: var(--mc-ink-2); }
 
-/* 안전 */
+/* 안전 — 소프트 스카이블루(안심) */
+.mc-safety-band { background: #EDF4F8; }
+.mc-safety-band .mc-sec-tag { color: var(--mc-sky-deep); }
 .mc-safety { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 @media (max-width: 760px) { .mc-safety { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 460px) { .mc-safety { grid-template-columns: 1fr; } }
-.mc-safe-item { background: var(--mc-cream); border: 1px solid var(--mc-line); border-radius: var(--mc-radius-sm); padding: 22px; display: flex; gap: 14px; align-items: flex-start; }
-.mc-safe-item .mc-safe-ic { font-size: 24px; }
-.mc-safe-item h4 { font-size: 15.5px; font-weight: 700; margin-bottom: 4px; }
+.mc-safe-item { background: #fff; border: 1px solid #D6E7EF; border-radius: var(--mc-radius-sm); padding: 20px; display: flex; gap: 14px; align-items: center; }
+.mc-safe-item .mc-safe-ic { width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; background: #DBEAF2; display: grid; place-items: center; font-size: 22px; }
+.mc-safe-item h4 { font-size: 15.5px; font-weight: 700; margin-bottom: 4px; color: var(--mc-pine); }
 .mc-safe-item p { font-size: 13px; color: var(--mc-muted); }
 
 /* 로드맵 */

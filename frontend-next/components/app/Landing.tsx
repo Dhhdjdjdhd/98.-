@@ -184,19 +184,21 @@ export function Landing() {
         </div>
       </section>
 
-      {/* 안전 */}
-      <section className="mc-section" style={{ paddingTop: 0 }}>
-        <div className="mc-sec-head">
-          <span className="mc-sec-tag">Safety First</span>
-          <h2>부모가 안심할 수 있는<br />6중 안전 장치</h2>
-        </div>
-        <div className="mc-safety">
-          {SAFETY.map(([ic, t, d]) => (
-            <div className="mc-safe-item" key={t}>
-              <div className="mc-safe-ic">{ic}</div>
-              <div><h4>{t}</h4><p>{d}</p></div>
-            </div>
-          ))}
+      {/* 안전 — 소프트 스카이블루(안심) */}
+      <section className="mc-safety-band">
+        <div className="mc-section">
+          <div className="mc-sec-head">
+            <span className="mc-sec-tag">Safety First</span>
+            <h2>부모가 안심할 수 있는<br />6중 안전 장치</h2>
+          </div>
+          <div className="mc-safety">
+            {SAFETY.map(([ic, t, d]) => (
+              <div className="mc-safe-item" key={t}>
+                <div className="mc-safe-ic">{ic}</div>
+                <div><h4>{t}</h4><p>{d}</p></div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
