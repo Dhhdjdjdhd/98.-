@@ -120,6 +120,7 @@ export const api = {
   pay: (id: string) => post(`/bookings/${id}/pay`),
   accept: (id: string) => post(`/bookings/${id}/accept`),
   reject: (id: string) => post(`/bookings/${id}/reject`),
+  rematch: (id: string) => post(`/bookings/${id}/rematch`),
   checkIn: (id: string) => post(`/bookings/${id}/check-in`),
   complete: (id: string) => post(`/bookings/${id}/complete`),
   cancelBooking: (id: string) => post(`/bookings/${id}/cancel`),
@@ -134,6 +135,7 @@ export const api = {
 
   // ---- 리뷰 ----
   createReview: (payload: any) => post('/reviews', payload),
+  listReviews: (targetId: string) => get(`/reviews?targetId=${targetId}`),
 
   // ---- 육아일지 ----
   addCareLog: (bookingId: string, type: string, note: string) =>

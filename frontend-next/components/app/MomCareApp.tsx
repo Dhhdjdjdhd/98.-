@@ -6,7 +6,7 @@ import { AppProvider, useApp } from './context';
 import { Login, SignupChoice, SignupParent, SignupWorker } from './screens/auth';
 import {
   ParentHome, ParentBookings, ParentCareLog,
-  GradeSelect, DateSelect, TimeSelect, AddressChild, Pay, Matching, Matched, Active, Review, Done,
+  GradeSelect, DateSelect, TimeSelect, AddressChild, Pay, Matching, Matched, Active, Review, Done, WorkerDetail,
 } from './screens/parent';
 import { WorkerHome, WorkerCareLog } from './screens/worker';
 import { AdminHome } from './screens/admin';
@@ -28,6 +28,7 @@ function Router() {
     case 'pay': return <Pay />;
     case 'matching': return <Matching />;
     case 'matched': return <Matched />;
+    case 'worker-detail': return <WorkerDetail />;
     case 'active': return <Active />;
     case 'review': return <Review />;
     case 'done': return <Done />;

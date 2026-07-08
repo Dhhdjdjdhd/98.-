@@ -153,6 +153,24 @@ export class BookingsService {
     return this.autoMatch(fresh);
   }
 
+  // ---- 3-c. 부모 재매칭 요청 → 현재 근무자 제외하고 다시 배정 ----
+  async rematch(bookingId: string, parentId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.parentId !== parentId) {
+      throw new BadRequestException('본인 예약만 변경할 수 있습니다.');
+    }
+    if (booking.status !== BookingStatus.MATCHED) {
+      throw new BadRequestException('매칭 완료 상태에서만 전문가를 변경할 수 있습니다.');
+    }
+    if (!booking.workerId) {
+      throw new BadRequestException('배정된 전문가가 없습니다.');
+    }
+    const rejectedWorkerIds = [...(booking.rejectedWorkerIds ?? []), booking.workerId];
+    await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, { rejectedWorkerIds });
+    const fresh = await this.getBooking(bookingId);
+    return this.autoMatch(fresh);
+  }
+
   // ---- 3. 근무 시작 (GPS 출근) ----
   async checkIn(bookingId: string) {
     const booking = await this.getBooking(bookingId);

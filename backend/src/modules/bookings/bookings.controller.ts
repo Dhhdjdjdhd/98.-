@@ -91,6 +91,13 @@ export class BookingsController {
     return this.bookings.reject(id, user.sub);
   }
 
+  // 부모 재매칭 요청 → 현재 근무자 제외 재배정 (부모 본인만)
+  @Roles(Role.PARENT)
+  @Post(':id/rematch')
+  rematch(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.rematch(id, user.sub);
+  }
+
   // 근무 시작(GPS 출근)
   @Post(':id/check-in')
   checkIn(@Param('id') id: string) {

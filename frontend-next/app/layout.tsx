@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         {/* 실제 모바일 기기 감지 → <html>.mc-mobile (body 렌더 전 실행) */}
         <script

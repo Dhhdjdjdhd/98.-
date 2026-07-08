@@ -7,7 +7,7 @@ import { GradeCode } from '@/lib/constants';
 export type ScreenName =
   | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
   | 'parent-home' | 'parent-bookings' | 'parent-carelog'
-  | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done'
+  | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail'
   | 'worker-home' | 'worker-carelog'
   | 'admin-home';
 

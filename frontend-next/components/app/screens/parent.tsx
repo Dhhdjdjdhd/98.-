@@ -308,7 +308,22 @@ export function TimeSelect() {
 }
 
 export function AddressChild() {
-  const { draft, patch, go } = useApp();
+  const { draft, patch, go, user } = useApp();
+  useEffect(() => {
+    // 주소·아이나이 미입력 시 최근 예약값을 기본으로 채움
+    if (!api.isLoggedIn() || !user) return;
+    if (draft.address && draft.childAge) return;
+    api.listBookings({ parentId: user.id }).then((list: any) => {
+      if (!Array.isArray(list) || !list.length) return;
+      const recent = [...list].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+      const opt = CHILD_AGE_OPTS.find(([, , , v]) => v === recent.childAge);
+      patch({
+        address: draft.address || recent.address || '',
+        childAge: draft.childAge || (opt ? { value: opt[3], label: opt[1] } : undefined),
+      });
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <>
       <Body>
@@ -369,10 +384,11 @@ export function Pay() {
 export function Matching() {
   const { draft, patch, go } = useApp();
   const started = useRef(false);
+  const alive = useRef(true);
   useEffect(() => {
-    if (started.current) return; // StrictMode 이중 실행/재진입 시 예약 중복 생성 방지
+    alive.current = true; // StrictMode 재마운트 시 재활성화
+    if (started.current) return; // 예약 중복 생성 방지 (async는 1회만 실행)
     started.current = true;
-    let alive = true;
     (async () => {
       if (api.isLoggedIn()) {
         try {
@@ -381,15 +397,15 @@ export function Matching() {
           const paid: any = await api.pay(bid);
           let worker = null;
           if (paid.matched) worker = await api.getWorker(paid.workerId);
-          if (alive) { patch({ bookingId: bid, matchedWorker: worker }); go('matched'); }
+          if (alive.current) { patch({ bookingId: bid, matchedWorker: worker }); go('matched'); }
           return;
         } catch (e) {
           console.warn('매칭 실패, 데모 진행', e);
         }
       }
-      setTimeout(() => alive && go('matched'), 2000);
+      setTimeout(() => alive.current && go('matched'), 2000);
     })();
-    return () => { alive = false; };
+    return () => { alive.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
@@ -402,8 +418,27 @@ export function Matching() {
 }
 
 export function Matched() {
-  const { draft, go } = useApp();
+  const { draft, go, patch } = useApp();
+  const [busy, setBusy] = useState(false);
   const w = draft.matchedWorker;
+  const doRematch = async () => {
+    if (!draft.bookingId) return alert('데모 모드에서는 변경할 수 없습니다.');
+    if (!confirm('현재 전문가 대신 다른 전문가로 변경할까요?')) return;
+    setBusy(true);
+    try {
+      const res: any = await api.rematch(draft.bookingId);
+      if (res.matched) {
+        const worker: any = await api.getWorker(res.workerId);
+        patch({ matchedWorker: worker });
+        alert('다른 전문가로 변경되었습니다.');
+      } else {
+        patch({ matchedWorker: null });
+        alert('현재 배정 가능한 다른 전문가가 없어 매칭 대기 상태로 전환됩니다. 예약내역에서 확인하세요.');
+        go('parent-bookings');
+      }
+    } catch (e: any) { alert('변경 실패: ' + e.message); }
+    finally { setBusy(false); }
+  };
   const name = w ? w.name : '김서연';
   const role = w ? w.profile.licenseType : '간호사';
   const career = w ? w.profile.careerNote || `${w.profile.careerYears}년 경력` : '신생아실 7년 경력';
@@ -428,12 +463,72 @@ export function Matched() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => alert('채팅 (프로토타입)')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">💬 채팅</button>
-          <button onClick={() => alert('전화 연결 (프로토타입)')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</button>
+          <button onClick={() => go('worker-detail')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📋 상세 이력</button>
+          {w?.phone
+            ? <a href={`tel:${w.phone}`} className="flex items-center justify-center rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</a>
+            : <button onClick={() => alert('데모 모드에서는 전화 연결이 지원되지 않습니다.')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</button>}
         </div>
+        <button onClick={doRematch} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">🔄 다른 전문가로 변경</button>
       </Body>
       <Foot><NextButton onClick={() => go('active')}>근무 시작 화면 보기 →</NextButton></Foot>
     </>
+  );
+}
+
+/* ================= 담당 전문가 상세 이력 ================= */
+export function WorkerDetail() {
+  const { draft } = useApp();
+  const w = draft.matchedWorker;
+  const [reviews, setReviews] = useState<any[]>([]);
+  useEffect(() => {
+    if (w?.id) api.listReviews(w.id).then((r: any) => setReviews(Array.isArray(r) ? r : [])).catch(() => {});
+  }, [w?.id]);
+  if (!w) {
+    return (
+      <Body>
+        <TopBar back="matched" title="상세 이력" />
+        <div className="py-10 text-center text-[14px] text-muted">전문가 정보를 불러올 수 없습니다.</div>
+      </Body>
+    );
+  }
+  const p = w.profile || {};
+  const docs: any = p.docs || {};
+  const docLabels: [string, string][] = [['license', '면허'], ['criminalCheck', '범죄경력'], ['childAbuseCheck', '아동학대'], ['healthCert', '보건증']];
+  return (
+    <Body>
+      <TopBar back="matched" title="상세 이력" />
+      {/* ① 프로필 + ② 핵심 지표 */}
+      <div className="mb-4 rounded-[20px] border border-line bg-cream p-6 text-center">
+        <div className="mx-auto mb-3 grid h-[80px] w-[80px] place-items-center rounded-full bg-gradient-to-br from-amber to-terra text-[36px]">👩‍⚕️</div>
+        <h4 className="text-xl font-extrabold text-pine">{w.name} {p.licenseType}</h4>
+        <div className="mt-1 text-[13px] text-muted">{p.grade}등급 · {p.careerNote || `경력 ${p.careerYears}년`}</div>
+        <div className="mt-4 flex justify-center gap-7 border-t border-line pt-4">
+          <div><b className="block font-serif text-xl text-pine">{p.ratingAvg ?? '-'}</b><span className="text-[11.5px] text-muted">평점</span></div>
+          <div><b className="block font-serif text-xl text-pine">{p.careCount ?? 0}</b><span className="text-[11.5px] text-muted">돌봄 횟수</span></div>
+          <div><b className="block font-serif text-xl text-pine">{p.careerYears ?? 0}년</b><span className="text-[11.5px] text-muted">경력</span></div>
+        </div>
+      </div>
+      {/* ③ 검증 뱃지 */}
+      <Label>인증 현황</Label>
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {docLabels.map(([k, l]) => (
+          <span key={k} className={'rounded-full px-3 py-1.5 text-[12px] font-semibold ' + (docs[k] ? 'bg-[#E9F0EC] text-pine' : 'bg-ivory-2 text-muted')}>{docs[k] ? '✓' : '·'} {l}</span>
+        ))}
+      </div>
+      {/* ⑤ 받은 리뷰 */}
+      <Label>받은 리뷰{reviews.length ? ` (${reviews.length})` : ''}</Label>
+      {reviews.length ? reviews.map((r) => (
+        <div key={r.id} className="mb-2.5 rounded-2xl border border-line bg-cream p-4">
+          <div className="mb-1.5 text-[13px] text-amber">{'⭐'.repeat(r.rating)}</div>
+          {r.tags?.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {r.tags.map((t: string) => <span key={t} className="rounded-full bg-ivory-2 px-2.5 py-1 text-[11.5px] font-semibold text-ink-2">{t}</span>)}
+            </div>
+          )}
+          {r.comment && <p className="text-[13.5px] text-ink-2">{r.comment}</p>}
+        </div>
+      )) : <div className="py-6 text-center text-[13px] text-muted">아직 받은 리뷰가 없어요</div>}
+    </Body>
   );
 }
 
