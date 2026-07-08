@@ -53,6 +53,15 @@ export function ParentHome() {
       alert('해제 실패: ' + e.message);
     }
   }
+  async function doCancel(id: string) {
+    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
+    try {
+      await api.cancelBooking(id);
+      setRecent((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'CANCELED' } : b)));
+    } catch (e: any) {
+      alert('취소 실패: ' + e.message);
+    }
+  }
 
   return (
     <>
@@ -100,7 +109,7 @@ export function ParentHome() {
         )}
 
         <Label>최근 예약</Label>
-        {live && recent.length ? recent.map((b) => <BookingCard key={b.id} b={b} onRebook={rebook} />) : (
+        {live && recent.length ? recent.map((b) => <BookingCard key={b.id} b={b} onRebook={rebook} onCancel={doCancel} />) : (
           <div className="px-0.5 py-1.5 text-[13px] text-muted">{loaded ? '아직 예약 내역이 없어요' : '불러오는 중…'}</div>
         )}
 
@@ -288,9 +297,16 @@ export function DateSelect() {
 
 export function TimeSelect() {
   const { draft, patch, go } = useApp();
-  const slots = ['09:00', '11:00', '13:00', '15:00', '18:00', '21:00'];
-  const hours = [2, 3, 4, 6];
+  const durations = [1, 2, 3, 4, 6];
+  const [custom, setCustom] = useState(false);
+  useEffect(() => {
+    if (draft.hours && !durations.includes(draft.hours)) setCustom(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const chip = (active: boolean) => 'rounded-xl border-[1.5px] py-3 text-center text-[14px] font-semibold transition ' + (active ? 'border-terra bg-terra text-white' : 'border-line bg-cream text-ink hover:border-terra');
+  const sel = 'w-full rounded-xl border-[1.5px] border-line bg-cream px-4 py-3 text-[14px] font-semibold text-ink outline-none focus:border-terra';
+  const [curH, curM] = (draft.time || '').split(':');
+  const setTime = (hh: string, mm: string) => patch({ time: `${hh}:${mm}` });
   return (
     <>
       <Body>
@@ -298,11 +314,26 @@ export function TimeSelect() {
         <Progress step={3} />
         <Q sub={`7월 ${draft.date}일 · 시작 시간을 선택하세요`}>몇 시부터<br />몇 시간 필요하세요?</Q>
         <Label>시작 시간</Label>
-        <div className="grid grid-cols-3 gap-2">{slots.map((t) => <button key={t} className={chip(draft.time === t)} onClick={() => patch({ time: t })}>{t}</button>)}</div>
+        <div className="grid grid-cols-2 gap-2">
+          <select className={sel} value={curH ?? ''} onChange={(e) => setTime(e.target.value, curM || '00')}>
+            <option value="" disabled>시 선택</option>
+            {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((hh) => <option key={hh} value={hh}>{hh}시</option>)}
+          </select>
+          <select className={sel} value={curM ?? ''} onChange={(e) => setTime(curH || '09', e.target.value)}>
+            <option value="" disabled>분 선택</option>
+            {['00', '15', '30', '45'].map((mm) => <option key={mm} value={mm}>{mm}분</option>)}
+          </select>
+        </div>
         <Label>이용 시간</Label>
-        <div className="grid grid-cols-3 gap-2">{hours.map((h) => <button key={h} className={chip(draft.hours === h)} onClick={() => patch({ hours: h })}>{h}시간</button>)}</div>
+        <div className="grid grid-cols-3 gap-2">
+          {durations.map((d) => <button key={d} className={chip(!custom && draft.hours === d)} onClick={() => { setCustom(false); patch({ hours: d }); }}>{d}시간</button>)}
+          <button className={chip(custom)} onClick={() => setCustom(true)}>기타</button>
+        </div>
+        {custom && (
+          <input type="number" min={1} max={24} value={draft.hours ?? ''} onChange={(e) => patch({ hours: Number(e.target.value) })} placeholder="시간 직접 입력 (예: 8)" className={sel + ' mt-2'} />
+        )}
       </Body>
-      <Foot><NextButton disabled={!draft.time} onClick={() => go('address')}>다음</NextButton></Foot>
+      <Foot><NextButton disabled={!draft.time || !draft.hours} onClick={() => go('address')}>다음</NextButton></Foot>
     </>
   );
 }
@@ -314,13 +345,20 @@ export function AddressChild() {
     if (!api.isLoggedIn() || !user) return;
     if (draft.address && draft.childAge) return;
     api.listBookings({ parentId: user.id }).then((list: any) => {
-      if (!Array.isArray(list) || !list.length) return;
-      const recent = [...list].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
-      const opt = CHILD_AGE_OPTS.find(([, , , v]) => v === recent.childAge);
-      patch({
-        address: draft.address || recent.address || '',
-        childAge: draft.childAge || (opt ? { value: opt[3], label: opt[1] } : undefined),
-      });
+      if (Array.isArray(list) && list.length) {
+        // 예약 이력 있으면 가장 최근 예약의 주소·아이나이
+        const recent = [...list].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
+        const opt = CHILD_AGE_OPTS.find(([, , , v]) => v === recent.childAge);
+        patch({
+          address: draft.address || recent.address || '',
+          childAge: draft.childAge || (opt ? { value: opt[3], label: opt[1] } : undefined),
+        });
+      } else {
+        // 예약 이력 없으면 가입 시 주소를 기본값으로
+        api.getParent(user.id).then((p: any) => {
+          if (p?.profile?.address) patch({ address: draft.address || p.profile.address });
+        }).catch(() => {});
+      }
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -385,40 +423,75 @@ export function Matching() {
   const { draft, patch, go } = useApp();
   const started = useRef(false);
   const alive = useRef(true);
+  const [failed, setFailed] = useState(false);
+
+  const runMatch = async () => {
+    setFailed(false);
+    if (!api.isLoggedIn()) {
+      setTimeout(() => alive.current && go('matched'), 2000);
+      return;
+    }
+    try {
+      const created: any = await api.createBooking(payloadFromDraft(draft));
+      const bid = created.booking.id;
+      const paid: any = await api.pay(bid);
+      if (!alive.current) return;
+      if (paid.matched) {
+        const worker: any = await api.getWorker(paid.workerId);
+        if (alive.current) { patch({ bookingId: bid, matchedWorker: worker }); go('matched'); }
+      } else {
+        // 조건에 맞는 전문가가 없으면 예약을 롤백(취소)하고 그 자리에서 재조정 유도
+        try { await api.cancelBooking(bid); } catch {}
+        if (alive.current) setFailed(true);
+      }
+    } catch (e) {
+      console.warn('매칭 처리 오류', e);
+    }
+  };
+
   useEffect(() => {
     alive.current = true; // StrictMode 재마운트 시 재활성화
-    if (started.current) return; // 예약 중복 생성 방지 (async는 1회만 실행)
+    if (started.current) return; // 예약 중복 생성 방지 (최초 1회만 실행)
     started.current = true;
-    (async () => {
-      if (api.isLoggedIn()) {
-        try {
-          const created: any = await api.createBooking(payloadFromDraft(draft));
-          const bid = created.booking.id;
-          const paid: any = await api.pay(bid);
-          let worker = null;
-          if (paid.matched) worker = await api.getWorker(paid.workerId);
-          if (alive.current) { patch({ bookingId: bid, matchedWorker: worker }); go('matched'); }
-          return;
-        } catch (e) {
-          console.warn('매칭 실패, 데모 진행', e);
-        }
-      }
-      setTimeout(() => alive.current && go('matched'), 2000);
-    })();
+    runMatch();
     return () => { alive.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (failed) {
+    return (
+      <Body className="pt-12 text-center">
+        <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-full bg-ivory-2 text-[36px]">🔍</div>
+        <h3 className="font-serif text-[21px] font-bold text-pine">조건에 맞는 전문가가<br />지금은 없어요</h3>
+        <p className="mt-2 text-[13.5px] text-ink-2">등급을 바꿔 바로 다시 찾거나,<br />시간을 조정해 보세요. (결제는 취소되었습니다)</p>
+        <div className="mt-6 text-left">
+          <Label>등급 변경</Label>
+          <div className="grid grid-cols-4 gap-2">
+            {GRADE_ORDER.map((g) => (
+              <button key={g} onClick={() => patch({ grade: g })} className={'rounded-xl border-[1.5px] py-2.5 text-[13px] font-bold transition ' + (draft.grade === g ? 'border-terra bg-terra text-white' : 'border-line bg-cream text-ink hover:border-terra')}>{g}등급</button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col gap-2.5">
+          <button onClick={runMatch} className="w-full rounded-2xl bg-terra py-3.5 text-[14px] font-bold text-white">이 조건으로 다시 찾기</button>
+          <button onClick={() => go('time')} className="w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">시간 변경</button>
+          <button onClick={() => go('parent-home')} className="w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted">홈으로</button>
+        </div>
+      </Body>
+    );
+  }
+
   return (
     <Body className="pt-20 text-center">
       <div className="mx-auto mb-6 h-24 w-24 animate-spin rounded-full border-4 border-line border-t-terra" />
       <h3 className="font-serif text-[24px] font-bold text-pine">전문가를 찾고 있어요</h3>
-      <p className="mt-2 text-[14px] text-ink-2">7월 {draft.date}일 근무 가능한<br />{draft.grade}등급 전문가를 매칭 중입니다…</p>
+      <p className="mt-2 text-[14px] text-ink-2">{draft.time} 시작 · {draft.hours}시간<br />{draft.grade}등급 전문가를 매칭 중입니다…</p>
     </Body>
   );
 }
 
 export function Matched() {
-  const { draft, go, patch } = useApp();
+  const { draft, go, patch, resetDraft } = useApp();
   const [busy, setBusy] = useState(false);
   const w = draft.matchedWorker;
   const doRematch = async () => {
@@ -469,6 +542,7 @@ export function Matched() {
             : <button onClick={() => alert('데모 모드에서는 전화 연결이 지원되지 않습니다.')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📞 전화</button>}
         </div>
         <button onClick={doRematch} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">🔄 다른 전문가로 변경</button>
+        <button onClick={() => { resetDraft(); go('parent-home'); }} className="mt-2.5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
       </Body>
       <Foot><NextButton onClick={() => go('active')}>근무 시작 화면 보기 →</NextButton></Foot>
     </>
@@ -477,22 +551,39 @@ export function Matched() {
 
 /* ================= 담당 전문가 상세 이력 ================= */
 export function WorkerDetail() {
-  const { draft } = useApp();
-  const w = draft.matchedWorker;
+  const { draft, go, resetDraft } = useApp();
+  const [info, setInfo] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
+  const goHome = () => { resetDraft(); go('parent-home'); };
   useEffect(() => {
-    if (w?.id) api.listReviews(w.id).then((r: any) => setReviews(Array.isArray(r) ? r : [])).catch(() => {});
-  }, [w?.id]);
-  if (!w) {
+    const loadReviews = (id?: string) => { if (id) api.listReviews(id).then((r: any) => setReviews(Array.isArray(r) ? r : [])).catch(() => {}); };
+    const w = draft.matchedWorker;
+    if (w?.id) {
+      const p = w.profile || {};
+      setInfo({ name: w.name, licenseType: p.licenseType, grade: p.grade, ratingAvg: p.ratingAvg, careCount: p.careCount, careerYears: p.careerYears, careerNote: p.careerNote, docs: p.docs || {} });
+      loadReviews(w.id);
+    } else if (draft.bookingId) {
+      // 매칭 임시정보가 없으면 예약ID로 담당자 재조회(견고성)
+      api.bookingWorker(draft.bookingId).then((d: any) => {
+        if (!d) return;
+        setInfo({ name: d.name, licenseType: d.licenseType, grade: d.grade, ratingAvg: d.ratingAvg, careCount: d.careCount, careerYears: d.careerYears, careerNote: d.careerNote, docs: d.docs || {} });
+        loadReviews(d.workerId);
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (!info) {
     return (
       <Body>
         <TopBar back="matched" title="상세 이력" />
-        <div className="py-10 text-center text-[14px] text-muted">전문가 정보를 불러올 수 없습니다.</div>
+        <div className="py-12 text-center text-[14px] text-muted">
+          전문가 정보를 불러올 수 없습니다.
+          <button onClick={goHome} className="mx-auto mt-4 block rounded-xl bg-pine px-5 py-2.5 text-[13px] font-bold text-white">🏠 홈으로</button>
+        </div>
       </Body>
     );
   }
-  const p = w.profile || {};
-  const docs: any = p.docs || {};
+  const docs: any = info.docs || {};
   const docLabels: [string, string][] = [['license', '면허'], ['criminalCheck', '범죄경력'], ['childAbuseCheck', '아동학대'], ['healthCert', '보건증']];
   return (
     <Body>
@@ -500,12 +591,12 @@ export function WorkerDetail() {
       {/* ① 프로필 + ② 핵심 지표 */}
       <div className="mb-4 rounded-[20px] border border-line bg-cream p-6 text-center">
         <div className="mx-auto mb-3 grid h-[80px] w-[80px] place-items-center rounded-full bg-gradient-to-br from-amber to-terra text-[36px]">👩‍⚕️</div>
-        <h4 className="text-xl font-extrabold text-pine">{w.name} {p.licenseType}</h4>
-        <div className="mt-1 text-[13px] text-muted">{p.grade}등급 · {p.careerNote || `경력 ${p.careerYears}년`}</div>
+        <h4 className="text-xl font-extrabold text-pine">{info.name} {info.licenseType}</h4>
+        <div className="mt-1 text-[13px] text-muted">{info.grade}등급 · {info.careerNote || `경력 ${info.careerYears}년`}</div>
         <div className="mt-4 flex justify-center gap-7 border-t border-line pt-4">
-          <div><b className="block font-serif text-xl text-pine">{p.ratingAvg ?? '-'}</b><span className="text-[11.5px] text-muted">평점</span></div>
-          <div><b className="block font-serif text-xl text-pine">{p.careCount ?? 0}</b><span className="text-[11.5px] text-muted">돌봄 횟수</span></div>
-          <div><b className="block font-serif text-xl text-pine">{p.careerYears ?? 0}년</b><span className="text-[11.5px] text-muted">경력</span></div>
+          <div><b className="block font-serif text-xl text-pine">{info.ratingAvg ?? '-'}</b><span className="text-[11.5px] text-muted">평점</span></div>
+          <div><b className="block font-serif text-xl text-pine">{info.careCount ?? 0}</b><span className="text-[11.5px] text-muted">돌봄 횟수</span></div>
+          <div><b className="block font-serif text-xl text-pine">{info.careerYears ?? 0}년</b><span className="text-[11.5px] text-muted">경력</span></div>
         </div>
       </div>
       {/* ③ 검증 뱃지 */}
@@ -528,6 +619,7 @@ export function WorkerDetail() {
           {r.comment && <p className="text-[13.5px] text-ink-2">{r.comment}</p>}
         </div>
       )) : <div className="py-6 text-center text-[13px] text-muted">아직 받은 리뷰가 없어요</div>}
+      <button onClick={goHome} className="mt-5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
     </Body>
   );
 }

@@ -39,7 +39,9 @@ export class UsersService {
       COLLECTIONS.PARENTS,
       (p) => p.userId === userId,
     );
-    return { ...user, profile };
+    const safeUser = { ...user };
+    delete (safeUser as any).passwordHash; // 비밀번호 해시 응답 제외
+    return { ...safeUser, profile };
   }
 
   async getWorkerDetail(userId: string) {

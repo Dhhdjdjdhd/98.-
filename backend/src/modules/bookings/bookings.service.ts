@@ -253,6 +253,7 @@ export class BookingsService {
     const user = await this.users.getUser(booking.workerId);
     const profile = await this.users.getWorkerByUserId(booking.workerId);
     return {
+      workerId: booking.workerId,
       name: user.name,
       phone: user.phone,
       licenseType: profile.licenseType,
@@ -261,6 +262,7 @@ export class BookingsService {
       careerNote: profile.careerNote,
       careerYears: profile.careerYears,
       careCount: profile.careCount,
+      docs: profile.docs,
     };
   }
 
