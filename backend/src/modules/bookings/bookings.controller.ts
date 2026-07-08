@@ -58,6 +58,13 @@ export class BookingsController {
     return this.bookings.parentContact(id, user.sub);
   }
 
+  // 담당 근무자 정보 — 예약 부모 본인만
+  @Roles(Role.PARENT)
+  @Get(':id/worker')
+  workerInfo(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.workerInfo(id, user.sub);
+  }
+
   // 상세
   @Get(':id')
   detail(@Param('id') id: string) {
@@ -96,9 +103,10 @@ export class BookingsController {
     return this.bookings.complete(id);
   }
 
-  // 취소(환불)
+  // 취소(환불) — 부모 본인만
+  @Roles(Role.PARENT)
   @Post(':id/cancel')
-  cancel(@Param('id') id: string) {
-    return this.bookings.cancel(id);
+  cancel(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.cancel(id, user.sub);
   }
 }

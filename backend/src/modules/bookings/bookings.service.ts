@@ -190,10 +190,15 @@ export class BookingsService {
   }
 
   // ---- 5. 취소 (환불) ----
-  async cancel(bookingId: string) {
+  async cancel(bookingId: string, requesterId?: string) {
     const booking = await this.getBooking(bookingId);
-    if ([BookingStatus.DONE, BookingStatus.CANCELED].includes(booking.status)) {
-      throw new BadRequestException('이미 종료된 예약입니다.');
+    if (requesterId && booking.parentId !== requesterId) {
+      throw new BadRequestException('본인 예약만 취소할 수 있습니다.');
+    }
+    if (
+      [BookingStatus.IN_PROGRESS, BookingStatus.DONE, BookingStatus.CANCELED].includes(booking.status)
+    ) {
+      throw new BadRequestException('근무가 시작되었거나 종료된 예약은 취소할 수 없습니다.');
     }
     const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
       status: BookingStatus.CANCELED,
@@ -218,6 +223,27 @@ export class BookingsService {
     }
     const parent = await this.users.getUser(booking.parentId);
     return { name: parent.name, phone: parent.phone };
+  }
+
+  // ---- 담당 근무자 정보(프로필+연락처) — 예약 부모 본인만 ----
+  async workerInfo(bookingId: string, parentId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.parentId !== parentId) {
+      throw new BadRequestException('본인 예약의 담당자만 조회할 수 있습니다.');
+    }
+    if (!booking.workerId) return null; // 아직 배정 전
+    const user = await this.users.getUser(booking.workerId);
+    const profile = await this.users.getWorkerByUserId(booking.workerId);
+    return {
+      name: user.name,
+      phone: user.phone,
+      licenseType: profile.licenseType,
+      grade: profile.grade,
+      ratingAvg: profile.ratingAvg,
+      careerNote: profile.careerNote,
+      careerYears: profile.careerYears,
+      careCount: profile.careCount,
+    };
   }
 
   // ---- 조회 ----

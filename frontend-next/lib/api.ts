@@ -122,12 +122,14 @@ export const api = {
   reject: (id: string) => post(`/bookings/${id}/reject`),
   checkIn: (id: string) => post(`/bookings/${id}/check-in`),
   complete: (id: string) => post(`/bookings/${id}/complete`),
+  cancelBooking: (id: string) => post(`/bookings/${id}/cancel`),
   listBookings: (params: Record<string, string> = {}) => {
     const q = new URLSearchParams(params).toString();
     return get(`/bookings${q ? `?${q}` : ''}`);
   },
   getWorker: (userId: string) => get(`/workers/${userId}`),
   bookingContact: (id: string) => get(`/bookings/${id}/contact`),
+  bookingWorker: (id: string) => get(`/bookings/${id}/worker`),
   settlement: (userId: string) => get(`/bookings/worker/${userId}/settlement`),
 
   // ---- 리뷰 ----

@@ -120,10 +120,18 @@ export function ParentHome() {
   );
 }
 
-function BookingCard({ b, onRebook }: { b: any; onRebook: (g: GradeCode) => void }) {
+function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCode) => void; onCancel: (id: string) => void }) {
   const { go, patch } = useApp();
   const st = BOOKING_STATUS[b.status] || [b.status, '#eee', '#888'];
   const amount = (GRADES[b.grade as GradeCode]?.price || 0) * b.hours;
+  const [worker, setWorker] = useState<any>(null);
+  useEffect(() => {
+    // 배정된(취소 아닌) 예약이면 담당 근무자 정보 조회
+    if (b.workerId && b.status !== 'CANCELED') {
+      api.bookingWorker(b.id).then(setWorker).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [b.id]);
   return (
     <div className="mb-3 rounded-2xl border border-line bg-cream p-4">
       <div className="mb-3 flex items-start justify-between">
@@ -134,11 +142,25 @@ function BookingCard({ b, onRebook }: { b: any; onRebook: (g: GradeCode) => void
         <Badge text={st[0]} bg={st[1]} color={st[2]} />
       </div>
       <div className="text-[13px] text-muted">📍 {b.address}</div>
+      {worker && (
+        <div className="mt-2 rounded-xl bg-ivory-2 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 text-[13px] leading-tight">
+              <div><span className="text-muted">담당</span> <b className="text-pine">{worker.name} {worker.licenseType}</b> · {worker.grade}등급</div>
+              <div className="mt-0.5 text-[12px] text-muted">⭐ {worker.ratingAvg} · {worker.careerNote || `경력 ${worker.careerYears}년`} · 돌봄 {worker.careCount}회</div>
+            </div>
+            <a href={`tel:${worker.phone}`} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-pine">📞 전화</a>
+          </div>
+        </div>
+      )}
       <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">이용 금액 {won(amount)}</div>
       {(b.status === 'DONE' || b.status === 'IN_PROGRESS') && (
         <button onClick={() => { patch({ viewBookingId: b.id }); go('parent-carelog'); }} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지 보기</button>
       )}
       <button onClick={() => onRebook(b.grade)} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">같은 등급으로 재예약</button>
+      {(b.status === 'REQUESTED' || b.status === 'MATCHED') && (
+        <button onClick={() => onCancel(b.id)} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-muted">예약 취소</button>
+      )}
     </div>
   );
 }
@@ -149,16 +171,47 @@ export function ParentBookings() {
   const [bookings, setBookings] = useState<any[] | null>(null);
   useEffect(() => {
     if (!live || !user) { setBookings([]); return; }
-    api.listBookings({ parentId: user.id }).then((b: any) => setBookings(b.reverse())).catch(() => setBookings([]));
+    api.listBookings({ parentId: user.id }).then((b: any) => setBookings(b)).catch(() => setBookings([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const doRebook = (code: GradeCode) => { patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined }); go('date'); };
+  const doCancel = async (id: string) => {
+    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
+    try {
+      await api.cancelBooking(id);
+      setBookings((prev) => (prev ?? []).map((b) => (b.id === id ? { ...b, status: 'CANCELED' } : b)));
+    } catch (e: any) { alert('취소 실패: ' + e.message); }
+  };
+
+  // 오늘(KST) — 근무일 지남 여부 판단용
+  const d = new Date();
+  const today = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  // 지난 예약: 완료·취소 또는 근무일이 오늘 이전
+  const isEnded = (b: any) => b.status === 'DONE' || b.status === 'CANCELED' || b.date < today;
+  const all = bookings ?? [];
+  const upcoming = all.filter((b) => !isEnded(b)).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
+  const past = all.filter(isEnded).sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+
   return (
     <Body>
       <TopBar back="parent-home" title="내 예약내역" />
       {bookings === null ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
-        : bookings.length ? bookings.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} />)
-        : <div className="py-5 text-center text-[14px] text-muted">아직 예약 내역이 없어요</div>}
+        : all.length === 0 ? <div className="py-5 text-center text-[14px] text-muted">아직 예약 내역이 없어요</div>
+        : (
+          <>
+            <Label>다가오는 예약{upcoming.length ? ` (${upcoming.length})` : ''}</Label>
+            {upcoming.length ? upcoming.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)
+              : <div className="mb-3 rounded-2xl border border-dashed border-line py-6 text-center text-[13px] text-muted">예정된 예약이 없어요</div>}
+            {past.length > 0 && (
+              <>
+                <Label>지난 예약 ({past.length})</Label>
+                <div className="opacity-60">
+                  {past.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)}
+                </div>
+              </>
+            )}
+          </>
+        )}
     </Body>
   );
 }
