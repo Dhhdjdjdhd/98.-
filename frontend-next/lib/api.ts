@@ -127,6 +127,7 @@ export const api = {
     return get(`/bookings${q ? `?${q}` : ''}`);
   },
   getWorker: (userId: string) => get(`/workers/${userId}`),
+  bookingContact: (id: string) => get(`/bookings/${id}/contact`),
   settlement: (userId: string) => get(`/bookings/worker/${userId}/settlement`),
 
   // ---- 리뷰 ----

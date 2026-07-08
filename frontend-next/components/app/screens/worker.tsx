@@ -23,10 +23,17 @@ export function WorkerHome() {
         const [settle, detail, bookings]: any = await Promise.all([
           api.settlement(user.id), api.getWorker(user.id), api.listBookings({ workerId: user.id }),
         ]);
+        const visible = bookings.filter((b: any) => b.status !== 'CANCELED').reverse();
+        // 배정된 예약마다 예약자(부모) 연락처 병렬 조회
+        const withContact = await Promise.all(
+          visible.map(async (b: any) => {
+            try { return { ...b, parent: await api.bookingContact(b.id) }; } catch { return b; }
+          }),
+        );
         if (alive) setData({
           earn: settle.totalPayout, count: settle.completedCount,
           rating: detail.profile?.ratingAvg ?? '-', grade: detail.profile?.grade ?? '',
-          bookings: bookings.filter((b: any) => b.status !== 'CANCELED').reverse(),
+          bookings: withContact,
         });
       } catch {}
     })();
@@ -80,6 +87,15 @@ export function WorkerHome() {
                   <Badge text={label[0]} bg={label[1]} color={label[2]} />
                 </div>
                 <div className="text-[13px] text-muted">📍 {b.address}</div>
+                {b.parent && (
+                  <div className="mt-2 flex items-center justify-between rounded-xl bg-ivory-2 px-3 py-2">
+                    <div className="text-[13px] leading-tight">
+                      <span className="text-muted">예약자</span> <b className="text-ink">{b.parent.name}</b>
+                      <div className="text-[12.5px] text-muted">{b.parent.phone}</div>
+                    </div>
+                    <a href={`tel:${b.parent.phone}`} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-pine">📞 전화</a>
+                  </div>
+                )}
                 <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">정산 예정 {won(payout)}</div>
                 {st === 'MATCHED' && !accepted && (
                   <div className="mt-2.5 grid grid-cols-[1fr_1.6fr] gap-2">

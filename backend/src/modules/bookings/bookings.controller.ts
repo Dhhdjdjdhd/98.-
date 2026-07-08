@@ -51,6 +51,13 @@ export class BookingsController {
     return this.bookings.listCareLog(id);
   }
 
+  // 예약자(부모) 연락처 — 배정된 근무자 본인만
+  @Roles(Role.WORKER)
+  @Get(':id/contact')
+  parentContact(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.parentContact(id, user.sub);
+  }
+
   // 상세
   @Get(':id')
   detail(@Param('id') id: string) {

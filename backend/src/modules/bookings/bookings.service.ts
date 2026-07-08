@@ -210,6 +210,16 @@ export class BookingsService {
     return updated;
   }
 
+  // ---- 예약자(부모) 연락처 — 배정된 근무자 본인만 ----
+  async parentContact(bookingId: string, workerId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.workerId !== workerId) {
+      throw new BadRequestException('배정된 근무자만 예약자 연락처를 볼 수 있습니다.');
+    }
+    const parent = await this.users.getUser(booking.parentId);
+    return { name: parent.name, phone: parent.phone };
+  }
+
   // ---- 조회 ----
   async detail(bookingId: string) {
     const booking = await this.getBooking(bookingId);
