@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './landing.css';
 
 export const metadata: Metadata = {
   title: '맘케어(MomCare) — 의료전문가 기반 프리미엄 육아 매칭',

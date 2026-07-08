@@ -1,5 +1,5 @@
-import { MomCareApp } from '@/components/app/MomCareApp';
+import { Landing } from '@/components/app/Landing';
 
 export default function Page() {
-  return <MomCareApp />;
+  return <Landing />;
 }

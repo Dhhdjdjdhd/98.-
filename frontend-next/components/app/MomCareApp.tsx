@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { api, AuthUserInfo } from '@/lib/api';
-import { AppShell } from './AppShell';
 import { LoginScreen } from './screens/LoginScreen';
 import { Button } from '@/components/ui/button';
 
@@ -10,6 +9,11 @@ type Screen = 'login' | 'parent-home' | 'worker-home' | 'admin-home';
 
 function roleHome(role: string): Screen {
   return role === 'WORKER' ? 'worker-home' : role === 'ADMIN' ? 'admin-home' : 'parent-home';
+}
+
+// 폰 스크린(mc-screen)을 채우는 앱 컨테이너
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-ivory">{children}</div>;
 }
 
 export function MomCareApp() {
@@ -38,15 +42,13 @@ export function MomCareApp() {
     setScreen('login');
   }
 
-  if (!ready) return <AppShell><div className="flex-1" /></AppShell>;
+  if (!ready) return <Shell><div className="flex-1" /></Shell>;
 
   return (
-    <AppShell>
+    <Shell>
       {screen === 'login' && <LoginScreen live={live} onAuthed={onAuthed} />}
-      {screen !== 'login' && user && (
-        <PlaceholderHome user={user} onLogout={logout} />
-      )}
-    </AppShell>
+      {screen !== 'login' && user && <PlaceholderHome user={user} onLogout={logout} />}
+    </Shell>
   );
 }
 
