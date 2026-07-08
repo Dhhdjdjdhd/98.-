@@ -39,7 +39,7 @@ export function ParentHome() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [live, user]);
 
   function rebook(code: GradeCode) {
     patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined });
@@ -206,10 +206,11 @@ export function ParentBookings() {
   const { user, live, patch, go } = useApp();
   const [bookings, setBookings] = useState<any[] | null>(null);
   useEffect(() => {
-    if (!live || !user) { setBookings([]); return; }
+    if (!user) { setBookings([]); return; }
+    if (!live) return; // 서버 연결 대기 (연결되면 아래 deps로 재실행)
     api.listBookings({ parentId: user.id }).then((b: any) => setBookings(b)).catch(() => setBookings([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [live, user]);
   const doRebook = (code: GradeCode) => { patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined }); go('date'); };
   const doCancel = async (id: string) => {
     if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
