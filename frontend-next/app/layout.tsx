@@ -3,9 +3,9 @@ import './globals.css';
 import './landing.css';
 
 export const metadata: Metadata = {
-  title: '맘케어(MomCare) — 의료전문가 기반 프리미엄 육아 매칭',
+  title: '케어빌리지(CareVillage) — 의료전문가 기반 프리미엄 육아 매칭',
   description:
-    '간호사·간호조무사 등 검증된 돌봄 전문가를 필요한 시간에 연결하는 프리미엄 육아 플랫폼',
+    '간호사·간호조무사 등 검증된 돌봄 전문가를 필요한 시간에 연결하는 프리미엄 육아 플랫폼. 한 아이를 키우는 온 마을을 디지털로 연결합니다.',
 };
 
 export const viewport: Viewport = {

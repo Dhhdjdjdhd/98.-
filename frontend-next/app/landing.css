@@ -3,19 +3,21 @@
    앱 내부 화면은 Tailwind 사용, 여기는 랜딩 + 폰 프레임 + 모바일만
    ============================================================ */
 :root {
-  --mc-ivory: #FaF5EC;
-  --mc-ivory-2: #F3EADB;
-  --mc-cream: #FFFCF6;
-  --mc-pine: #16443C;
-  --mc-pine-2: #0E322C;
-  --mc-pine-soft: #2E5A50;
-  --mc-terra: #D96C4A;
-  --mc-terra-2: #C0532F;
+  --mc-ivory: #F7F3E9;
+  --mc-ivory-2: #EFE7D8;
+  --mc-cream: #FFFDF8;
+  --mc-pine: #3E5D4F;      /* 세이지 그린 (신뢰) */
+  --mc-pine-2: #2C4638;
+  --mc-pine-soft: #7A9B86;
+  --mc-terra: #E0885F;     /* 피치 (사랑) */
+  --mc-terra-2: #C97050;
   --mc-amber: #E6A15B;
-  --mc-ink: #241F1A;
+  --mc-sky: #9BC4DB;       /* 소프트 스카이블루 (안심) */
+  --mc-sky-deep: #5B92B0;
+  --mc-ink: #2C2823;
   --mc-ink-2: #4A423A;
   --mc-muted: #8B8073;
-  --mc-line: #E4DAC8;
+  --mc-line: #E7DFD0;
   --mc-gold: #C9A24B;
   --mc-radius: 20px;
   --mc-radius-sm: 13px;

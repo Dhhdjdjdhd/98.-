@@ -7,6 +7,7 @@ import { useApp } from '../context';
 import { Body, Foot, NextButton, TopBar } from '../ui';
 import { Input, Field } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Villy } from '@/components/brand/Villy';
 
 /* ===== 로그인 ===== */
 const DEMO_ROLES: { role: 'parent' | 'worker' | 'admin'; icon: string; label: string; sub: string }[] = [
@@ -46,9 +47,9 @@ export function Login() {
   return (
     <Body className="pt-8">
       <div className="pb-2 text-center">
-        <div className="text-[44px]">🤱</div>
-        <h1 className="mt-2 font-serif text-2xl font-bold text-pine">맘케어 로그인</h1>
-        <p className="mt-1 text-[13px] text-muted">검증된 전문가와 함께하세요</p>
+        <Villy size={84} className="mx-auto" />
+        <h1 className="mt-1 font-serif text-2xl font-bold text-pine">케어빌리지</h1>
+        <p className="mt-1 text-[13px] text-muted">한 아이를 키우는 온 마을, 빌리와 함께</p>
         <div
           className={
             'mt-3 inline-block rounded-full border px-3 py-1 text-[12px] font-semibold ' +

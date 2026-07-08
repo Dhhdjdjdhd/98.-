@@ -1,4 +1,5 @@
 import { MomCareApp } from './MomCareApp';
+import { Villy } from '@/components/brand/Villy';
 
 const GRADES = [
   { k: 'a', badge: 'A', title: '간호사 · 신생아 전문', role: '신생아실·산후조리원·신생아중환자실·산후병동', price: '50,000', tags: ['신생아실', '산후병동', 'NICU'] },
@@ -28,10 +29,10 @@ export function Landing() {
       {/* 내비게이션 */}
       <nav className="mc-nav">
         <a href="#top" className="mc-logo">
-          <span className="mc-logo-mark"><span>🤱</span></span> 맘케어
+          <Villy size={34} /> 케어빌리지
         </a>
         <div className="mc-nav-links">
-          <a href="#why">왜 맘케어</a>
+          <a href="#why">왜 케어빌리지</a>
           <a href="#grades">전문가 등급</a>
           <a href="#demo">앱 미리보기</a>
           <a href="#roadmap">확장 로드맵</a>
@@ -60,6 +61,7 @@ export function Landing() {
         </div>
         <div className="mc-hero-visual">
           <div className="mc-hero-blob" />
+          <Villy size={230} className="relative z-[2] drop-shadow-[0_20px_40px_rgba(62,93,79,0.25)]" />
           <div className="mc-float-card mc-float-1">
             <div className="mc-fc-ic" style={{ background: '#E9F0EC' }}>🩺</div>
             <div><div className="mc-fc-t">간호사 자격 인증</div><div className="mc-fc-s">면허증 검수 완료</div></div>
@@ -81,7 +83,7 @@ export function Landing() {
           <div className="mc-mission-label">Our Mission · 서비스 철학</div>
           <h2>“한 아이를 키우는 데는 <b>온 마을</b>이 필요합니다.<br />우리는 그 마을을 <b>디지털로</b> 연결합니다.”</h2>
           <p>
-            핵가족화와 맞벌이 증가로 사라진 공동체의 돌봄 문화. 맘케어는 검증된 전문 자격을 갖춘
+            핵가족화와 맞벌이 증가로 사라진 공동체의 돌봄 문화. 케어빌리지는 검증된 전문 자격을 갖춘
             간호사·간호조무사·보육교사를 하나의 플랫폼으로 연결하여, 부모가 필요한 순간 언제든
             믿고 도움을 받을 수 있는 새로운 육아 생태계를 만듭니다.
           </p>
@@ -93,7 +95,7 @@ export function Landing() {
         <div className="mc-sec-head">
           <span className="mc-sec-tag">Why MomCare</span>
           <h2>단순 베이비시터가 아닙니다.<br />의료 전문가가 돌봅니다.</h2>
-          <p>자격 제한 없는 일반 매칭 앱과는 출발점이 다릅니다. 맘케어는 오직 검증된 전문 인력만 활동합니다.</p>
+          <p>자격 제한 없는 일반 매칭 앱과는 출발점이 다릅니다. 케어빌리지는 오직 검증된 전문 인력만 활동합니다.</p>
         </div>
         <div className="mc-compare">
           <div className="mc-compare-card mc-compare-bad">
@@ -105,7 +107,7 @@ export function Landing() {
             </ul>
           </div>
           <div className="mc-compare-card mc-compare-good">
-            <h3>🤱 맘케어</h3>
+            <h3>🕊️ 케어빌리지</h3>
             <ul>
               {['간호사·간호조무사만 가입 가능', '면허증·자격증 인증 필수, 경력별 등급제', '신생아 전문 돌봄 · 의료 지식 보유', '범죄경력·아동학대 조회, 관리자 승인제'].map((t) => (
                 <li key={t}><span className="mc-check">✓</span> {t}</li>
@@ -223,7 +225,7 @@ export function Landing() {
       <section className="mc-cta-banner">
         <div className="mc-cta-inner">
           <h2>육아는 혼자 감당하는 일이 아닙니다.<br /><b>사회가 함께 책임지는 일</b>입니다.</h2>
-          <p>맘케어와 함께 더 안전하고 따뜻한 돌봄 문화를 만들어갑니다.</p>
+          <p>케어빌리지와 함께 더 안전하고 따뜻한 돌봄 문화를 만들어갑니다.</p>
           <a href="#demo" className="mc-btn-primary">지금 앱 데모 체험하기 →</a>
         </div>
       </section>
@@ -232,17 +234,17 @@ export function Landing() {
       <footer className="mc-footer">
         <div className="mc-footer-inner">
           <div>
-            <div className="mc-logo"><span className="mc-logo-mark"><span>🤱</span></span> 맘케어</div>
+            <div className="mc-logo"><Villy size={30} /> 케어빌리지</div>
             <p className="mc-footer-tag">의료 전문가 기반 프리미엄 육아 매칭 플랫폼. 검증된 전문가를 필요한 시간에 연결합니다.</p>
           </div>
           <div className="mc-footer-cols">
-            <div className="mc-footer-col"><h5>서비스</h5><a href="#why">왜 맘케어</a><a href="#grades">전문가 등급</a><a href="#demo">앱 미리보기</a></div>
+            <div className="mc-footer-col"><h5>서비스</h5><a href="#why">왜 케어빌리지</a><a href="#grades">전문가 등급</a><a href="#demo">앱 미리보기</a></div>
             <div className="mc-footer-col"><h5>회사</h5><a href="#">브랜드 철학</a><a href="#roadmap">확장 로드맵</a><a href="#">투자 문의</a></div>
             <div className="mc-footer-col"><h5>고객지원</h5><a href="#">이용안내</a><a href="#">자주 묻는 질문</a><a href="#">고객센터</a></div>
           </div>
         </div>
         <div className="mc-footer-bottom">
-          <span>© 2026 맘케어(MomCare). 투자유치용 프로토타입.</span>
+          <span>© 2026 케어빌리지(CareVillage). 투자유치용 프로토타입.</span>
           <span>“그 마을을, 디지털로 연결합니다.”</span>
         </div>
       </footer>
