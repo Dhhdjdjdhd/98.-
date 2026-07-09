@@ -248,7 +248,7 @@ export class BookingsService {
     return updated;
   }
 
-  // ---- 관리자 정산: 완료(DONE)+결제완료(PAID, 미정산) 목록 ----
+  // ---- 관리자 정산: 완료(DONE) 근무의 정산 대상(대기 PAID + 완료 SETTLED) ----
   async listPendingSettlements() {
     const done = await this.db.find<Booking>(
       COLLECTIONS.BOOKINGS,
@@ -258,7 +258,7 @@ export class BookingsService {
     const rows: any[] = [];
     for (const b of done) {
       const p = payments.find((x) => x.bookingId === b.id);
-      if (!p || p.status !== PaymentStatus.PAID) continue;
+      if (!p || (p.status !== PaymentStatus.PAID && p.status !== PaymentStatus.SETTLED)) continue;
       const worker = b.workerId ? await this.users.getUser(b.workerId) : null;
       const parent = await this.users.getUser(b.parentId);
       rows.push({
@@ -273,6 +273,7 @@ export class BookingsService {
         base: p.base,
         feeAmount: p.feeAmount,
         workerPayout: p.workerPayout,
+        paymentStatus: p.status,
         checkOutAt: b.checkOutAt,
       });
     }

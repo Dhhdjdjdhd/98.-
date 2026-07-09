@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { won } from '@/lib/utils';
+import { won, pad2 } from '@/lib/utils';
 import { resizeImage } from '@/lib/image';
 import { CHILD_AGES, BOOKING_STATUS } from '@/lib/constants';
 import { useApp } from '../context';
@@ -76,9 +76,33 @@ export function AdminHome() {
   }
   async function doSettle(bookingId: string) {
     if (!confirm('이 근무의 정산(근무자 입금)을 승인할까요?')) return;
-    try { await api.settle(bookingId); setSettlements((s) => (s ? s.filter((x) => x.bookingId !== bookingId) : s)); }
+    try { await api.settle(bookingId); loadSettlements(); }
     catch (e: any) { alert('정산 실패: ' + e.message); }
   }
+  const settlePending = settlements ? settlements.filter((s) => s.paymentStatus !== 'SETTLED') : [];
+  // 정산 완료는 근무 종료일 기준 최근 2주(14일)만 노출
+  const _cut = new Date(Date.now() - 14 * 86400000);
+  const settleCutoff = `${_cut.getFullYear()}-${pad2(_cut.getMonth() + 1)}-${pad2(_cut.getDate())}`;
+  const settleDone = settlements
+    ? settlements.filter((s) => s.paymentStatus === 'SETTLED' && String(s.checkOutAt || '').slice(0, 10) >= settleCutoff)
+    : [];
+  const settleCard = (s: any, done: boolean) => (
+    <div key={s.bookingId} className="mb-3 rounded-2xl border border-line bg-cream p-4">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div>
+          <b className="text-[15px] text-pine">{s.workerName || '전문가'} <span className="font-normal text-muted">→</span> {s.parentName}</b>
+          <div className="mt-0.5 text-[12.5px] text-muted">{s.date} {s.startTime} · {s.hours}시간 · {s.grade}등급</div>
+        </div>
+        {done && <span className="shrink-0 rounded-full bg-[#EEF2F6] px-2.5 py-1 text-[11px] font-semibold text-[#5A6B7B]">정산완료</span>}
+      </div>
+      <div className="rounded-xl bg-ivory-2 p-3 text-[13px]">
+        <div className="flex justify-between py-0.5"><span className="text-muted">부모 결제액</span><b className="text-ink">{won(s.base)}</b></div>
+        <div className="flex justify-between py-0.5"><span className="text-muted">플랫폼 수수료(15%)</span><span className="text-muted">− {won(s.feeAmount)}</span></div>
+        <div className="mt-1 flex justify-between border-t border-line pt-1.5"><span className="font-bold text-ink">근무자 정산액</span><b className="font-serif text-[15px] text-terra-2">{won(s.workerPayout)}</b></div>
+      </div>
+      {!done && <button onClick={() => doSettle(s.bookingId)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">💸 근무자에게 입금 (정산 완료)</button>}
+    </div>
+  );
 
   return (
     <Body>
@@ -122,21 +146,20 @@ export function AdminHome() {
 
       {tab === 'settle' && (
         settlements === null ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
-          : settlements.length ? settlements.map((s) => (
-            <div key={s.bookingId} className="mb-3 rounded-2xl border border-line bg-cream p-4">
-              <div className="mb-2">
-                <b className="text-[15px] text-pine">{s.workerName || '전문가'} <span className="text-muted">→</span> {s.parentName}</b>
-                <div className="mt-0.5 text-[12.5px] text-muted">{s.date} {s.startTime} · {s.hours}시간 · {s.grade}등급</div>
-              </div>
-              <div className="rounded-xl bg-ivory-2 p-3 text-[13px]">
-                <div className="flex justify-between py-0.5"><span className="text-muted">부모 결제액</span><b className="text-ink">{won(s.base)}</b></div>
-                <div className="flex justify-between py-0.5"><span className="text-muted">플랫폼 수수료(15%)</span><span className="text-muted">− {won(s.feeAmount)}</span></div>
-                <div className="mt-1 flex justify-between border-t border-line pt-1.5"><span className="font-bold text-ink">근무자 정산액</span><b className="font-serif text-[15px] text-terra-2">{won(s.workerPayout)}</b></div>
-              </div>
-              <button onClick={() => doSettle(s.bookingId)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">💸 근무자에게 입금 (정산 완료)</button>
-            </div>
-          ))
-          : <div className="py-6 text-center text-[14px] text-muted">정산 대기 중인 근무가 없습니다 ✓</div>
+          : settlements.length === 0 ? <div className="py-6 text-center text-[14px] text-muted">완료된 근무(정산 대상)가 없습니다</div>
+          : (
+            <>
+              <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-muted">정산 대기 ({settlePending.length})</div>
+              {settlePending.length ? settlePending.map((s) => settleCard(s, false))
+                : <div className="mb-3 rounded-2xl border border-dashed border-line py-4 text-center text-[13px] text-muted">정산 대기 중인 근무가 없습니다 ✓</div>}
+              {settleDone.length > 0 && (
+                <>
+                  <div className="mb-2 mt-5 text-[12px] font-bold uppercase tracking-wide text-muted">정산 완료 · 최근 2주 ({settleDone.length})</div>
+                  <div className="opacity-60">{settleDone.map((s) => settleCard(s, true))}</div>
+                </>
+              )}
+            </>
+          )
       )}
 
       {tab === 'obs' && (
