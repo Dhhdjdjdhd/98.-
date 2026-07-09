@@ -57,13 +57,13 @@ export function ParentHome() {
     }
   }
 
-  // 다가오는 예약: 취소·완료 아님 + 근무일이 오늘 이후, 임박한 순
+  // 근무중 우선, 없으면 다가오는 예약(임박순) 1건 강조
   const d = new Date();
   const today = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const upcoming = bookings
-    .filter((b) => b.status !== 'CANCELED' && b.status !== 'DONE' && b.date >= today)
-    .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
-  const next = upcoming[0];
+  const asc = (a: any, b: any) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`);
+  const activeOne = bookings.filter((b) => b.status === 'IN_PROGRESS').sort(asc)[0];
+  const upcomingOne = bookings.filter((b) => (b.status === 'REQUESTED' || b.status === 'MATCHED') && b.date >= today).sort(asc)[0];
+  const next = activeOne || upcomingOne;
 
   return (
     <>
@@ -119,17 +119,28 @@ export function ParentHome() {
         )}
 
         {/* 다가오는 예약 (요약 1건) */}
-        <Label>다가오는 예약</Label>
+        <Label>{activeOne ? '🩺 근무중' : '다가오는 예약'}</Label>
         {!live || !loaded ? (
           <div className="px-0.5 py-1.5 text-[13px] text-muted">불러오는 중…</div>
         ) : next ? (
-          <button onClick={() => go('parent-bookings')} className="flex w-full items-center justify-between rounded-2xl border border-line bg-cream p-4 text-left transition hover:border-terra">
-            <div>
-              <div className="text-[15px] font-extrabold text-pine">{CHILD_AGES[next.childAge] || '아이'} 돌봄 · {next.grade}등급</div>
-              <div className="mt-0.5 text-[13px] text-muted">{next.date} {next.startTime} · {next.hours}시간</div>
-            </div>
-            <Badge text={(BOOKING_STATUS[next.status] || [next.status, '#eee', '#888'])[0]} bg={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[1]} color={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[2]} />
-          </button>
+          <>
+            <button
+              onClick={() => {
+                if (activeOne) { patch({ bookingId: next.id, activeBack: 'parent-home' }); go('active'); }
+                else go('parent-bookings');
+              }}
+              className="flex w-full items-center justify-between rounded-2xl border border-line bg-cream p-4 text-left transition hover:border-terra"
+            >
+              <div>
+                <div className="text-[15px] font-extrabold text-pine">{CHILD_AGES[next.childAge] || '아이'} 돌봄 · {next.grade}등급</div>
+                <div className="mt-0.5 text-[13px] text-muted">{next.date} {next.startTime} · {next.hours}시간</div>
+              </div>
+              <Badge text={(BOOKING_STATUS[next.status] || [next.status, '#eee', '#888'])[0]} bg={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[1]} color={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[2]} />
+            </button>
+            {activeOne && (
+              <button onClick={() => { patch({ bookingId: next.id }); go('review'); }} className="mt-2 w-full rounded-2xl bg-pine py-3 text-[14px] font-bold text-white">근무 종료 · 리뷰 남기기</button>
+            )}
+          </>
         ) : (
           <div className="rounded-2xl border border-dashed border-line py-5 text-center text-[13px] text-muted">예정된 예약이 없어요</div>
         )}
@@ -235,6 +246,11 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
     patch({ bookingId: b.id, matchedWorker: null, detailBack: screen });
     go('worker-detail');
   }
+  function openActive() {
+    // 근무중 예약의 근무 현황 보기 (뒤로가기는 현재 화면)
+    patch({ bookingId: b.id, activeBack: screen });
+    go('active');
+  }
   return (
     <div className="mb-3 rounded-2xl border border-line bg-cream p-4">
       <div className="mb-3 flex items-start justify-between">
@@ -258,7 +274,10 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
         </div>
       )}
       <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">이용 금액 {won(amount)}</div>
-      {(b.status === 'DONE' || b.status === 'IN_PROGRESS') && (
+      {b.status === 'IN_PROGRESS' && (
+        <button onClick={openActive} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">🩺 근무 현황 보기</button>
+      )}
+      {b.status === 'DONE' && (
         <button onClick={() => { patch({ viewBookingId: b.id }); go('parent-carelog'); }} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지 보기</button>
       )}
       <button onClick={() => onRebook(b.grade)} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">같은 등급으로 재예약</button>
@@ -291,11 +310,15 @@ export function ParentBookings() {
   // 오늘(KST) — 근무일 지남 여부 판단용
   const d = new Date();
   const today = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  // 지난 예약: 완료·취소 또는 근무일이 오늘 이전
-  const isEnded = (b: any) => b.status === 'DONE' || b.status === 'CANCELED' || b.date < today;
+  // 근무중 / 다가오는 / 지난 3구분
+  const isActive = (b: any) => b.status === 'IN_PROGRESS';
+  const isUpcoming = (b: any) => (b.status === 'REQUESTED' || b.status === 'MATCHED') && b.date >= today;
   const all = bookings ?? [];
-  const upcoming = all.filter((b) => !isEnded(b)).sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
-  const past = all.filter(isEnded).sort((a, b) => (b.date + b.startTime).localeCompare(a.date + a.startTime));
+  const asc = (a: any, b: any) => (a.date + a.startTime).localeCompare(b.date + b.startTime);
+  const desc = (a: any, b: any) => (b.date + b.startTime).localeCompare(a.date + a.startTime);
+  const active = all.filter(isActive).sort(asc);
+  const upcoming = all.filter(isUpcoming).sort(asc);
+  const past = all.filter((b) => !isActive(b) && !isUpcoming(b)).sort(desc);
 
   return (
     <Body>
@@ -304,6 +327,12 @@ export function ParentBookings() {
         : all.length === 0 ? <div className="py-5 text-center text-[14px] text-muted">아직 예약 내역이 없어요</div>
         : (
           <>
+            {active.length > 0 && (
+              <>
+                <Label>🩺 근무중 ({active.length})</Label>
+                {active.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)}
+              </>
+            )}
             <Label>다가오는 예약{upcoming.length ? ` (${upcoming.length})` : ''}</Label>
             {upcoming.length ? upcoming.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)
               : <div className="mb-3 rounded-2xl border border-dashed border-line py-6 text-center text-[13px] text-muted">예정된 예약이 없어요</div>}
@@ -608,11 +637,22 @@ export function Matched() {
         patch({ matchedWorker: worker });
         alert('다른 전문가로 변경되었습니다.');
       } else {
-        patch({ matchedWorker: null });
-        alert('현재 배정 가능한 다른 전문가가 없어 매칭 대기 상태로 전환됩니다. 예약내역에서 확인하세요.');
-        go('parent-bookings');
+        // 대체 후보 없음 → 현재 전문가 그대로 유지, 화면 이동하지 않음
+        alert('지금은 배정 가능한 다른 전문가가 없어요.\n현재 전문가를 그대로 유지합니다. 원하시면 아래 "예약 취소"를 이용하세요.');
       }
     } catch (e: any) { alert('변경 실패: ' + e.message); }
+    finally { setBusy(false); }
+  };
+  const doCancel = async () => {
+    if (!draft.bookingId) return alert('데모 모드에서는 취소할 수 없습니다.');
+    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
+    setBusy(true);
+    try {
+      await api.cancelBooking(draft.bookingId);
+      alert('예약이 취소되었습니다.');
+      resetDraft();
+      go('parent-home');
+    } catch (e: any) { alert('취소 실패: ' + e.message); }
     finally { setBusy(false); }
   };
   const name = w ? w.name : '김서연';
@@ -650,6 +690,7 @@ export function Matched() {
         </div>
         {draft.matchedWorker?.id && <div className="mt-2.5"><FavoriteButton workerId={draft.matchedWorker.id} /></div>}
         <button onClick={doRematch} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">🔄 다른 전문가로 변경</button>
+        <button onClick={doCancel} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">예약 취소</button>
         <button onClick={() => { resetDraft(); go('parent-home'); }} className="mt-2.5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
       </Body>
       <Foot><NextButton onClick={() => go('active')}>근무 시작 화면 보기 →</NextButton></Foot>
@@ -737,21 +778,19 @@ export function WorkerDetail() {
 export function Active() {
   const { draft, go } = useApp();
   useEffect(() => {
-    if (api.isLoggedIn() && draft.bookingId) api.checkIn(draft.bookingId).catch(() => {});
+    // 매칭완료에서 바로 진입한 경우에만 근무 시작(check-in) 처리 (예약내역서 재진입은 제외)
+    if (!draft.activeBack && api.isLoggedIn() && draft.bookingId) api.checkIn(draft.bookingId).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <>
       <Body>
-        <TopBar back="matched" title="실시간 근무" />
-        <div className="relative mb-4 h-[180px] overflow-hidden rounded-[18px] border border-line bg-gradient-to-br from-[#E8EDE6] to-[#DDE6DC]">
-          <div className="absolute left-3 top-3 rounded-full bg-pine px-3.5 py-1.5 text-[12.5px] font-bold text-white">도착까지 8분 · 이동중</div>
-          <div className="absolute bottom-[22%] left-[16%] text-[28px]">🏠</div>
-          <div className="absolute right-[18%] top-[30%] text-[28px]">👩‍⚕️</div>
-        </div>
-        <div className="mb-3.5 grid grid-cols-2 gap-2.5">
-          <button onClick={() => alert('채팅 (프로토타입)')} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">💬 채팅하기</button>
-          <button onClick={() => alert('🚨 응급신고 접수 (프로토타입)')} className="rounded-2xl border-[1.5px] border-terra bg-[#FBEAE5] py-3.5 text-[14px] font-bold text-terra-2">🚨 응급신고</button>
+        <TopBar back={draft.activeBack || 'matched'} title="근무 현황" />
+        {/* 근무 진행 상태 */}
+        <div className="mb-4 rounded-[18px] border border-line bg-cream p-5 text-center">
+          <div className="text-[32px]">🩺</div>
+          <div className="mt-1.5 font-serif text-[18px] font-bold text-pine">근무가 진행 중이에요</div>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted">담당 전문가가 아이를 돌보고 있어요.<br />아래에서 실시간 기록을 확인하세요.</p>
         </div>
         <Label>실시간 육아일지</Label>
         <CareLogList bookingId={draft.bookingId} />

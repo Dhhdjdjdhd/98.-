@@ -103,7 +103,7 @@ export function WorkerHome() {
                     <button onClick={() => accept(b.id)} className="rounded-xl bg-terra py-3 text-[14px] font-bold text-white">수락하기</button>
                   </div>
                 )}
-                {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작 (GPS 출근)</button>}
+                {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작</button>}
                 {st === 'IN_PROGRESS' && (
                   <div className="mt-2.5 grid grid-cols-2 gap-2">
                     <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-carelog'); }} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지</button>

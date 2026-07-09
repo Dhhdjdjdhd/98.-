@@ -111,11 +111,8 @@ export class BookingsService {
     return aStart < bEnd && bStart < aEnd; // 경계 접촉(끝=시작)은 겹침 아님
   }
 
-  // ---- 자동 매칭: 희망 등급의 승인된 근무자 중 평점순 배정(거절자·시간중복 제외) ----
-  private async autoMatch(booking: Booking) {
-    const rejected = new Set(booking.rejectedWorkerIds ?? []);
-
-    // 같은 날짜의 활성 예약(자기 자신 제외) 중 시간이 겹치면 그 근무자는 배정 불가
+  // 배정 후보: 희망 등급의 승인 근무자 중 거절자·같은날 시간중복 제외
+  private async findCandidates(booking: Booking, rejected: Set<string>) {
     const activeSameDay = await this.db.find<Booking>(
       COLLECTIONS.BOOKINGS,
       (b) =>
@@ -124,15 +121,18 @@ export class BookingsService {
         !!b.workerId &&
         (b.status === BookingStatus.MATCHED || b.status === BookingStatus.IN_PROGRESS),
     );
-    const busyWorkerIds = new Set(
-      activeSameDay
-        .filter((b) => this.overlaps(b, booking))
-        .map((b) => b.workerId as string),
+    const busy = new Set(
+      activeSameDay.filter((b) => this.overlaps(b, booking)).map((b) => b.workerId as string),
     );
+    return (await this.users.findApprovedWorkersByGrade(booking.grade)).filter(
+      (w) => !rejected.has(w.userId) && !busy.has(w.userId),
+    );
+  }
 
-    const candidates = (
-      await this.users.findApprovedWorkersByGrade(booking.grade)
-    ).filter((w) => !rejected.has(w.userId) && !busyWorkerIds.has(w.userId));
+  // ---- 자동 매칭: 후보 중 평점순 배정, 없으면 매칭 대기 ----
+  private async autoMatch(booking: Booking) {
+    const rejected = new Set(booking.rejectedWorkerIds ?? []);
+    const candidates = await this.findCandidates(booking, rejected);
 
     if (candidates.length === 0) {
       // 배정 가능한 근무자가 없으면 매칭 대기 상태로 되돌린다.
@@ -197,8 +197,21 @@ export class BookingsService {
     if (!booking.workerId) {
       throw new BadRequestException('배정된 전문가가 없습니다.');
     }
-    const rejectedWorkerIds = [...(booking.rejectedWorkerIds ?? []), booking.workerId];
-    await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, { rejectedWorkerIds });
+    // 대체 후보를 먼저 확인 — 없으면 현재 전문가를 그대로 유지(변경하지 않음)
+    const rejected = new Set([...(booking.rejectedWorkerIds ?? []), booking.workerId]);
+    const candidates = await this.findCandidates(booking, rejected);
+    if (candidates.length === 0) {
+      return {
+        booking,
+        matched: false,
+        kept: true,
+        message: '현재 배정 가능한 다른 전문가가 없습니다. 지금 전문가를 유지합니다.',
+      };
+    }
+    // 후보 있음 → 현재 전문가 제외하고 재배정
+    await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+      rejectedWorkerIds: [...rejected],
+    });
     const fresh = await this.getBooking(bookingId);
     return this.autoMatch(fresh);
   }

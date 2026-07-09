@@ -26,6 +26,7 @@ export interface Draft {
   viewBookingId?: string;   // 부모 육아일지 열람 대상
   detailBack?: ScreenName;  // 상세 이력 화면의 뒤로가기 목적지
   safetyBack?: ScreenName;  // 안전·보험 안내 화면의 뒤로가기 목적지
+  activeBack?: ScreenName;  // 근무 현황 화면의 뒤로가기 목적지
 }
 
 const emptyDraft: Draft = { hours: 2, address: '', rating: 0, reviewTags: [] };
