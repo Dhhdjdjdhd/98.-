@@ -62,6 +62,19 @@ async function del<T = any>(path: string): Promise<T> {
   return r.json();
 }
 
+async function patch<T = any>(path: string, body?: any): Promise<T> {
+  const r = await fetch(`${apiBase()}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!r.ok) {
+    const msg = await r.json().catch(() => ({}));
+    throw new Error((msg as any).message || `PATCH ${path} → ${r.status}`);
+  }
+  return r.json();
+}
+
 export const api = {
   // ---- 세션 ----
   getUser(): AuthUserInfo | null {
@@ -161,7 +174,13 @@ export const api = {
 
   // ---- 관리자 ----
   listWorkers: (status?: string) => get(`/workers${status ? `?status=${status}` : ''}`),
+  adminBookings: () => get('/bookings/all'),
+  pendingSettlements: () => get('/bookings/settlements/pending'),
+  settle: (bookingId: string) => post(`/bookings/${bookingId}/settle`),
+  adminObservations: (parentId?: string) => get(`/bookings/observations/all${parentId ? `?parentId=${parentId}` : ''}`),
   summary: () => get('/admin/summary'),
   approveWorker: (userId: string) => post(`/admin/workers/${userId}/approve`),
   rejectWorker: (userId: string, reason: string) => post(`/admin/workers/${userId}/reject`, { reason }),
+  setWorkerGrade: (userId: string, grade: string) => patch(`/admin/workers/${userId}/docs`, { grade }),
+  updateWorkerProfile: (userId: string, body: any) => patch(`/admin/workers/${userId}/profile`, body),
 };

@@ -242,14 +242,52 @@ export class BookingsService {
       checkOutAt: nowKst(),
     });
 
-    const payment = await this.getPaymentByBooking(bookingId);
-    await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
-      status: PaymentStatus.SETTLED,
-    });
-
+    // 결제는 PAID 유지 — 근무자 정산(SETTLED)은 관리자가 수동 승인한다
     if (booking.workerId) await this.users.incrementCareCount(booking.workerId);
 
     return updated;
+  }
+
+  // ---- 관리자 정산: 완료(DONE)+결제완료(PAID, 미정산) 목록 ----
+  async listPendingSettlements() {
+    const done = await this.db.find<Booking>(
+      COLLECTIONS.BOOKINGS,
+      (b) => b.status === BookingStatus.DONE,
+    );
+    const payments = await this.db.all<Payment>(COLLECTIONS.PAYMENTS);
+    const rows: any[] = [];
+    for (const b of done) {
+      const p = payments.find((x) => x.bookingId === b.id);
+      if (!p || p.status !== PaymentStatus.PAID) continue;
+      const worker = b.workerId ? await this.users.getUser(b.workerId) : null;
+      const parent = await this.users.getUser(b.parentId);
+      rows.push({
+        bookingId: b.id,
+        date: b.date,
+        startTime: b.startTime,
+        hours: b.hours,
+        grade: b.grade,
+        parentName: parent?.name,
+        workerId: b.workerId,
+        workerName: worker?.name,
+        base: p.base,
+        feeAmount: p.feeAmount,
+        workerPayout: p.workerPayout,
+        checkOutAt: b.checkOutAt,
+      });
+    }
+    return rows.sort((a, b) => String(b.checkOutAt || '').localeCompare(String(a.checkOutAt || '')));
+  }
+
+  // ---- 관리자 정산 승인: PAID → SETTLED ----
+  async settle(bookingId: string) {
+    const payment = await this.getPaymentByBooking(bookingId);
+    if (payment.status !== PaymentStatus.PAID) {
+      throw new BadRequestException('정산 가능한(결제완료) 상태가 아닙니다.');
+    }
+    return this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
+      status: PaymentStatus.SETTLED,
+    });
   }
 
   // ---- 5. 취소 (환불) ----
@@ -328,6 +366,19 @@ export class BookingsService {
     return bookings;
   }
 
+  // ---- 관리자: 전체 예약 (+ 부모·근무자 이름) ----
+  async listAllForAdmin() {
+    const bookings = await this.db.all<Booking>(COLLECTIONS.BOOKINGS);
+    const rows = await Promise.all(
+      bookings.map(async (b) => {
+        const parent = await this.db.findById<any>(COLLECTIONS.USERS, b.parentId);
+        const worker = b.workerId ? await this.db.findById<any>(COLLECTIONS.USERS, b.workerId) : null;
+        return { ...b, parentName: parent?.name, workerName: worker?.name };
+      }),
+    );
+    return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }
+
   // ---- 육아일지 ----
   async addCareLog(bookingId: string, workerId: string, dto: CreateCareLogDto) {
     await this.getBooking(bookingId); // 존재 확인
@@ -368,12 +419,19 @@ export class BookingsService {
     return observation;
   }
 
-  // 관리자 분석용: 부모별(또는 전체) 관찰 비고 목록
+  // 관리자 분석용: 부모별(또는 전체) 관찰 비고 목록 (+ 부모·근무자 이름)
   async listObservations(parentId?: string) {
     const list = parentId
       ? await this.db.find<Observation>(COLLECTIONS.OBSERVATIONS, (o) => o.parentId === parentId)
       : await this.db.all<Observation>(COLLECTIONS.OBSERVATIONS);
-    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const sorted = list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return Promise.all(
+      sorted.map(async (o) => {
+        const parent = await this.db.findById<any>(COLLECTIONS.USERS, o.parentId);
+        const worker = await this.db.findById<any>(COLLECTIONS.USERS, o.workerId);
+        return { ...o, parentName: parent?.name, workerName: worker?.name };
+      }),
+    );
   }
 
   // 관찰 비고 삭제 (작성한 근무자 본인만)

@@ -36,6 +36,27 @@ export class BookingsController {
     return this.bookings.settlement(workerId);
   }
 
+  // 관리자: 전체 예약 현황
+  @Roles(Role.ADMIN)
+  @Get('all')
+  allBookings() {
+    return this.bookings.listAllForAdmin();
+  }
+
+  // 관리자 정산: 정산 대기 목록(완료+결제완료·미정산)
+  @Roles(Role.ADMIN)
+  @Get('settlements/pending')
+  pendingSettlements() {
+    return this.bookings.listPendingSettlements();
+  }
+
+  // 관리자 정산 승인 (근무자에게 입금 처리 = PAID → SETTLED)
+  @Roles(Role.ADMIN)
+  @Post(':id/settle')
+  settle(@Param('id') id: string) {
+    return this.bookings.settle(id);
+  }
+
   // 육아일지 작성 (근무자) / 조회
   @Post(':id/care-log')
   addCareLog(

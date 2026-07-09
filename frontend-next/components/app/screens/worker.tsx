@@ -12,7 +12,7 @@ import { CareLogList } from '../CareLogList';
 /* ================= 근무자 홈 ================= */
 export function WorkerHome() {
   const { user, live, logout, go, patch } = useApp();
-  const [data, setData] = useState<{ earn: number; count: number; rating: any; grade: any; bookings: any[] } | null>(null);
+  const [data, setData] = useState<{ earn: number; count: number; rating: any; grade: any; status?: string; bookings: any[] } | null>(null);
   const [tick, setTick] = useState(0);
   const [showUpcoming, setShowUpcoming] = useState<boolean | null>(null);
   const [showHistory, setShowHistory] = useState(false);
@@ -35,6 +35,7 @@ export function WorkerHome() {
         if (alive) setData({
           earn: settle.totalPayout, count: settle.completedCount,
           rating: detail.profile?.ratingAvg ?? '-', grade: detail.profile?.grade ?? '',
+          status: detail.profile?.status ?? 'APPROVED',
           bookings: withContact,
         });
       } catch {}
@@ -84,7 +85,7 @@ export function WorkerHome() {
           </div>
         )}
         {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작</button>}
-        {st === 'IN_PROGRESS' && (
+        {(st === 'IN_PROGRESS' || st === 'DONE') && (
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-carelog'); }} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지</button>
             <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-observation'); }} className="rounded-xl bg-pine py-3 text-[14px] font-bold text-white">📋 특징·비고</button>
@@ -96,6 +97,10 @@ export function WorkerHome() {
 
   // 근무중 / 근무 예정 / 근무 이력 3구분
   const bks = data?.bookings ?? [];
+  const wstatus = data?.status;
+  const statusBadge = wstatus === 'PENDING' ? { label: '승인 대기', bg: '#FBF1E0', color: '#B57F2E' }
+    : wstatus === 'REJECTED' ? { label: '반려', bg: '#F3EDED', color: '#B0757A' }
+    : { label: '활동중', bg: '#E9F0EC', color: '#16443C' };
   const asc = (a: any, b: any) => (a.date + a.startTime).localeCompare(b.date + b.startTime);
   const desc = (a: any, b: any) => (b.date + b.startTime).localeCompare(a.date + a.startTime);
   const active = bks.filter((b: any) => b.status === 'IN_PROGRESS').sort(asc);
@@ -115,7 +120,7 @@ export function WorkerHome() {
       <div className="mb-5 flex items-center justify-between">
         <div className="text-[13px] text-muted">{user?.name}님 👩‍⚕️<b className="mt-0.5 block font-serif text-xl font-bold text-ink">오늘도 안전 근무!</b></div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[#E9F0EC] px-2.5 py-1 text-[11.5px] font-semibold text-pine">{data?.grade}등급 · 활동중</span>
+          <span className="rounded-full px-2.5 py-1 text-[11.5px] font-semibold" style={{ background: statusBadge.bg, color: statusBadge.color }}>{data?.grade}등급 · {statusBadge.label}</span>
           <button onClick={logout} title="로그아웃" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-ivory-2">🚪</button>
         </div>
       </div>
@@ -129,6 +134,20 @@ export function WorkerHome() {
       <Label>내 배정 근무</Label>
       {!live || !user ? <div className="py-5 text-center text-[14px] text-muted">데모 모드 — 로그인 시 실데이터</div>
         : !data ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
+        : wstatus === 'PENDING' ? (
+          <div className="rounded-2xl border border-[#EBD9B4] bg-[#FBF1E0] p-5 text-center">
+            <div className="text-[30px]">🔍</div>
+            <div className="mt-1.5 font-serif text-[17px] font-bold text-[#8A6420]">자격 심사 중이에요</div>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#9A7530]">관리자 승인 후 근무 배정을 받을 수 있어요.<br />조금만 기다려 주세요.</p>
+          </div>
+        )
+        : wstatus === 'REJECTED' ? (
+          <div className="rounded-2xl border border-[#E7C9C0] bg-[#FCEFE9] p-5 text-center">
+            <div className="text-[30px]">❌</div>
+            <div className="mt-1.5 font-serif text-[17px] font-bold text-terra-2">자격 심사가 반려되었어요</div>
+            <p className="mt-1 text-[13px] leading-relaxed text-ink-2">서류를 보완해 다시 신청해 주세요.</p>
+          </div>
+        )
         : active.length + upcoming.length + history.length === 0 ? <div className="py-5 text-center text-[14px] text-muted">아직 배정된 근무가 없습니다</div>
         : (
           <>

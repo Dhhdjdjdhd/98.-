@@ -25,6 +25,12 @@ export class AdminController {
     return this.admin.reviewDocs(userId, docs, grade);
   }
 
+  // 근무자 프로필 수정 (이름·자격·경력·등급·서류파일)
+  @Patch('workers/:userId/profile')
+  updateProfile(@Param('userId') userId: string, @Body() dto: any) {
+    return this.admin.updateWorkerProfile(userId, dto);
+  }
+
   // 승인
   @Post('workers/:userId/approve')
   approve(@Param('userId') userId: string) {

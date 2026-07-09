@@ -164,16 +164,24 @@ export function SignupParent() {
 }
 
 /* ===== 근무자 가입 ===== */
+const WORKER_DOCS: [string, string][] = [
+  ['license', '면허/자격증'],
+  ['career', '경력증명서'],
+  ['idCard', '신분증'],
+  ['criminalCheck', '범죄경력 조회'],
+  ['childAbuseCheck', '아동학대 조회'],
+  ['healthCert', '보건증'],
+];
+
 export function SignupWorker() {
   const { onAuthed, live } = useApp();
   const [f, setF] = useState({ name: '', phone: '', password: '', grade: 'B', careerYears: '3', careerNote: '' });
   const [license, setLicense] = useState('간호사');
-  const licenseRef = useRef<HTMLInputElement>(null);
-  const idRef = useRef<HTMLInputElement>(null);
+  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
 
-  async function upload(ref: React.RefObject<HTMLInputElement>, kind: string) {
-    const file = ref.current?.files?.[0];
+  async function uploadDoc(kind: string) {
+    const file = fileRefs.current[kind]?.files?.[0];
     if (!file) return;
     try {
       const dataUrl = await resizeImage(file);
@@ -193,8 +201,7 @@ export function SignupWorker() {
         name: f.name, phone: f.phone, password: f.password,
         licenseType: license, grade, careerYears: parseInt(f.careerYears || '0', 10), careerNote: f.careerNote,
       });
-      await upload(licenseRef, 'license');
-      await upload(idRef, 'idCard');
+      for (const [kind] of WORKER_DOCS) await uploadDoc(kind);
       alert('가입 신청 완료! 관리자 승인 후 활동할 수 있어요.');
       onAuthed(u);
     } catch (e: any) {
@@ -230,8 +237,11 @@ export function SignupWorker() {
           <Field label="경력 요약"><Input value={f.careerNote} onChange={set('careerNote')} placeholder="예) 신생아실 3년" /></Field>
         </div>
         <div className="mb-3 mt-2 text-[12px] font-bold uppercase tracking-wide text-muted">서류 첨부 (이미지)</div>
-        <Field label="면허/자격증"><input ref={licenseRef} type="file" accept="image/*" className="w-full rounded-xl border-[1.5px] border-line bg-cream p-2.5 text-[13px]" /></Field>
-        <Field label="신분증"><input ref={idRef} type="file" accept="image/*" className="w-full rounded-xl border-[1.5px] border-line bg-cream p-2.5 text-[13px]" /></Field>
+        {WORKER_DOCS.map(([kind, label]) => (
+          <Field key={kind} label={label}>
+            <input ref={(el) => { fileRefs.current[kind] = el; }} type="file" accept="image/*" className="w-full rounded-xl border-[1.5px] border-line bg-cream p-2.5 text-[13px]" />
+          </Field>
+        ))}
       </Body>
       <Foot><NextButton onClick={submit}>가입 신청 (승인 대기)</NextButton></Foot>
     </>
