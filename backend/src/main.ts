@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import 'dotenv/config'; // 로컬 .env 로드 (배포는 플랫폼 환경변수 사용)
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';

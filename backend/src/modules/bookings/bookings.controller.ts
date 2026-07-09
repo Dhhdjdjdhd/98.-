@@ -125,10 +125,20 @@ export class BookingsController {
     return this.bookings.detail(id);
   }
 
-  // 결제 → 자동 매칭
+  // 결제 → 자동 매칭 (프로토타입/데모용 즉시 결제)
   @Post(':id/pay')
   pay(@Param('id') id: string) {
     return this.bookings.pay(id);
+  }
+
+  // 실결제 승인(토스페이먼츠) → 자동 매칭 (부모만)
+  @Roles(Role.PARENT)
+  @Post(':id/confirm-payment')
+  confirmPayment(
+    @Param('id') id: string,
+    @Body() body: { paymentKey: string; amount: number },
+  ) {
+    return this.bookings.confirmPayment(id, body.paymentKey, body.amount);
   }
 
   // 근무자 배정 수락 (근무자 본인만)

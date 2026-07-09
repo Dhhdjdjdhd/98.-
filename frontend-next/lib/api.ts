@@ -131,6 +131,8 @@ export const api = {
   // ---- 예약 ----
   createBooking: (payload: any) => post('/bookings', payload),
   pay: (id: string) => post(`/bookings/${id}/pay`),
+  confirmPayment: (bookingId: string, paymentKey: string, amount: number) =>
+    post(`/bookings/${bookingId}/confirm-payment`, { paymentKey, amount }),
   accept: (id: string) => post(`/bookings/${id}/accept`),
   reject: (id: string) => post(`/bookings/${id}/reject`),
   rematch: (id: string) => post(`/bookings/${id}/rematch`),

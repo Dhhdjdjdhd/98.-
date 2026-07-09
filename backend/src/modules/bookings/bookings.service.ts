@@ -95,6 +95,36 @@ export class BookingsService {
     return this.autoMatch(booking);
   }
 
+  // ---- 2-b. 실결제 승인(토스페이먼츠) → 결제 완료 + 자동 매칭 ----
+  async confirmPayment(bookingId: string, paymentKey: string, amount: number) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.status !== BookingStatus.REQUESTED) {
+      throw new BadRequestException('결제 가능한 상태가 아닙니다.');
+    }
+    const payment = await this.getPaymentByBooking(bookingId);
+    if (payment.base !== amount) {
+      throw new BadRequestException('결제 금액이 일치하지 않습니다.');
+    }
+    const secret = process.env.TOSS_SECRET_KEY;
+    if (!secret) throw new BadRequestException('결제 설정 오류: 시크릿 키가 없습니다.');
+
+    const auth = Buffer.from(`${secret}:`).toString('base64');
+    const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId: bookingId, amount }),
+    });
+    const data: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(data?.message || '결제 승인에 실패했습니다.');
+    }
+
+    await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
+      status: PaymentStatus.PAID,
+    });
+    return this.autoMatch(booking);
+  }
+
   // 'HH:mm' → 분 단위 정수
   private timeToMin(t: string): number {
     const [h, m] = (t || '0:0').split(':').map(Number);

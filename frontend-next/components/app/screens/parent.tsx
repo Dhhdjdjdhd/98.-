@@ -9,6 +9,7 @@ import { Body, Foot, NextButton, TopBar, Progress, Q, Label, Badge } from '../ui
 import { Input, Field } from '@/components/ui/input';
 import { CareLogList } from '../CareLogList';
 import { Villy } from '@/components/brand/Villy';
+import { loadTossPayments, ANONYMOUS } from '@tosspayments/tosspayments-sdk';
 
 function payloadFromDraft(d: any) {
   return {
@@ -518,6 +519,28 @@ export function Pay() {
   const Row = ({ l, v }: { l: string; v: string }) => (
     <div className="flex justify-between border-b border-dashed border-line py-2.5 text-[14px] text-ink-2 last:border-0"><span>{l}</span><b className="font-semibold text-ink">{v}</b></div>
   );
+  async function payWithToss() {
+    if (!api.isLoggedIn()) { go('matching'); return; } // 데모(비로그인)는 기존 프로토타입 흐름
+    try {
+      const created: any = await api.createBooking(payloadFromDraft(draft));
+      const bid = created.booking.id;
+      const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY as string;
+      const toss = await loadTossPayments(clientKey);
+      const payment = toss.payment({ customerKey: ANONYMOUS });
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: base },
+        orderId: bid,
+        orderName: `${g.name} 돌봄 ${draft.hours}시간`,
+        successUrl: `${window.location.origin}?toss=success`,
+        failUrl: `${window.location.origin}?toss=fail`,
+        card: { flowMode: 'DEFAULT', useEscrow: false, useCardPoint: false },
+      });
+    } catch (e: any) {
+      if (e?.code === 'USER_CANCEL') return;
+      alert('결제 시작 실패: ' + (e?.message || e));
+    }
+  }
   return (
     <>
       <Body>
@@ -546,7 +569,7 @@ export function Pay() {
           <span><b className="text-ink">[필수]</b> 보험·보상은 케어빌리지를 통한 예약에만 적용되며, 앱 외부 사적 거래로 발생한 문제에 플랫폼이 책임지지 않음을 확인했습니다.</span>
         </label>
       </Body>
-      <Foot><NextButton disabled={!agreed} onClick={() => go('matching')}>{won(base)} 결제하고 매칭</NextButton></Foot>
+      <Foot><NextButton disabled={!agreed} onClick={payWithToss}>{won(base)} 결제하기</NextButton></Foot>
     </>
   );
 }

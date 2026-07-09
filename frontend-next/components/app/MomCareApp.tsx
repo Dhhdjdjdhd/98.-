@@ -12,7 +12,39 @@ import { WorkerHome, WorkerCareLog, WorkerObservation } from './screens/worker';
 import { AdminHome } from './screens/admin';
 
 function Router() {
-  const { screen } = useApp();
+  const { screen, go, patch } = useApp();
+  // 토스 결제 성공/실패 리다이렉트 처리
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('toss');
+    if (!result) return;
+    window.history.replaceState({}, '', window.location.pathname); // URL 정리
+    if (result === 'fail') { alert('결제가 취소되었습니다.'); return; }
+    const paymentKey = params.get('paymentKey') || '';
+    const orderId = params.get('orderId') || '';
+    const amount = Number(params.get('amount') || 0);
+    if (!paymentKey || !orderId) return;
+    (async () => {
+      try {
+        const res: any = await api.confirmPayment(orderId, paymentKey, amount);
+        patch({ bookingId: orderId, grade: res.booking?.grade });
+        if (res.matched) {
+          const worker: any = await api.getWorker(res.workerId);
+          patch({ matchedWorker: worker });
+          go('matched');
+        } else {
+          patch({ matchedWorker: null });
+          alert('결제는 완료됐지만 지금 조건에 맞는 전문가가 없어요.\n예약내역에서 확인하세요.');
+          go('parent-bookings');
+        }
+      } catch (e: any) {
+        alert('결제 승인 실패: ' + (e?.message || e));
+        go('parent-home');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   switch (screen) {
     case 'login': return <Login />;
     case 'signup-choice': return <SignupChoice />;
