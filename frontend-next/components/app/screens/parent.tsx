@@ -8,6 +8,7 @@ import { useApp } from '../context';
 import { Body, Foot, NextButton, TopBar, Progress, Q, Label, Badge } from '../ui';
 import { Input, Field } from '@/components/ui/input';
 import { CareLogList } from '../CareLogList';
+import { Villy } from '@/components/brand/Villy';
 
 function payloadFromDraft(d: any) {
   return {
@@ -69,9 +70,12 @@ export function ParentHome() {
       <Body>
         {/* 헤더 */}
         <div className="mb-4 flex items-center justify-between">
-          <div className="text-[13px] text-muted">
-            안녕하세요, {user?.name}님 👋
-            <b className="mt-0.5 block font-serif text-xl font-bold text-ink">오늘도 안심하세요</b>
+          <div className="flex items-center gap-2.5">
+            <Villy size={40} />
+            <div className="text-[13px] text-muted">
+              안녕하세요, {user?.name}님
+              <b className="mt-0.5 block font-serif text-xl font-bold text-ink">오늘도 안심하세요</b>
+            </div>
           </div>
           <button onClick={logout} title="로그아웃" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-ivory-2">🚪</button>
         </div>
