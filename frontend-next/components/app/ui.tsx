@@ -59,7 +59,7 @@ export function TopBar({ back, title, right }: { back?: ScreenName; title: strin
 export function Progress({ step }: { step: number }) {
   return (
     <div className="mb-5 flex gap-1.5">
-      {[1, 2, 3, 4, 5].map((i) => (
+      {[1, 2, 3, 4, 5, 6].map((i) => (
         <span key={i} className={cn('h-[5px] flex-1 rounded-full', i <= step ? 'bg-terra' : 'bg-line')} />
       ))}
     </div>

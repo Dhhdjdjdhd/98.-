@@ -134,6 +134,10 @@ export const api = {
   confirmPayment: (bookingId: string, paymentKey: string, amount: number) =>
     post(`/bookings/${bookingId}/confirm-payment`, { paymentKey, amount }),
   checkAvailability: (bookingId: string) => get(`/bookings/${bookingId}/availability`),
+  availableWorkers: (grade: string, date: string, startTime: string, hours: number) => {
+    const q = new URLSearchParams({ grade, date, startTime, hours: String(hours) }).toString();
+    return get(`/bookings/available-workers?${q}`);
+  },
   accept: (id: string) => post(`/bookings/${id}/accept`),
   reject: (id: string) => post(`/bookings/${id}/reject`),
   rematch: (id: string) => post(`/bookings/${id}/rematch`),

@@ -36,4 +36,9 @@ export class CreateBookingDto {
 
   @IsEnum(Grade)
   grade: Grade;
+
+  // 부모가 직접 선택한 전문가 User.id (선택 안 하면 자동 매칭)
+  @IsString()
+  @IsOptional()
+  workerId?: string;
 }

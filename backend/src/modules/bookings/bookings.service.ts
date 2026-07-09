@@ -53,6 +53,7 @@ export class BookingsService {
     const booking: Booking = {
       id: genId('bk'),
       parentId: parentId,
+      workerId: dto.workerId ?? null, // 부모가 선택한 전문가(있으면)
       date: dto.date,
       startTime: dto.startTime,
       hours: dto.hours,
@@ -95,6 +96,41 @@ export class BookingsService {
     return this.autoMatch(booking);
   }
 
+  // ---- 부모 직접 선택용: 조건(등급·날짜·시간)에 배정 가능한 전문가 목록 ----
+  async findAvailableWorkers(grade: string, date: string, startTime: string, hours: number) {
+    const active = await this.db.find<Booking>(
+      COLLECTIONS.BOOKINGS,
+      (b) =>
+        b.date === date &&
+        !!b.workerId &&
+        (b.status === BookingStatus.MATCHED || b.status === BookingStatus.IN_PROGRESS),
+    );
+    const pseudo = { date, startTime, hours } as Booking;
+    const busy = new Set(
+      active.filter((b) => this.overlaps(b, pseudo)).map((b) => b.workerId as string),
+    );
+    const workers = await this.users.findApprovedWorkersByGrade(grade);
+    const rows = await Promise.all(
+      workers
+        .filter((w) => !busy.has(w.userId))
+        .map(async (w) => {
+          const u = await this.db.findById<any>(COLLECTIONS.USERS, w.userId);
+          return {
+            userId: w.userId,
+            name: u?.name,
+            licenseType: w.licenseType,
+            grade: w.grade,
+            careerYears: w.careerYears,
+            careerNote: w.careerNote,
+            ratingAvg: w.ratingAvg,
+            ratingCount: w.ratingCount,
+            careCount: w.careCount,
+          };
+        }),
+    );
+    return rows.sort((a, b) => (b.ratingAvg ?? 0) - (a.ratingAvg ?? 0));
+  }
+
   // ---- 결제 전: 이 예약 조건(등급·시간)에 배정 가능한 전문가가 있는지 ----
   async checkAvailability(bookingId: string) {
     const booking = await this.getBooking(bookingId);
@@ -130,6 +166,14 @@ export class BookingsService {
     await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
       status: PaymentStatus.PAID,
     });
+    // 부모가 선택한 전문가가 있으면 그대로 배정, 없으면 자동 매칭
+    if (booking.workerId) {
+      const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+        status: BookingStatus.MATCHED,
+        workerAccepted: false,
+      });
+      return { booking: updated, matched: true, workerId: booking.workerId };
+    }
     return this.autoMatch(booking);
   }
 

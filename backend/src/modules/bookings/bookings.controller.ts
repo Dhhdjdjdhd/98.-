@@ -30,6 +30,18 @@ export class BookingsController {
     return this.bookings.list({ parentId, workerId });
   }
 
+  // 부모 직접 선택용: 조건(등급·날짜·시간)에 배정 가능한 전문가 목록 (':id'보다 먼저)
+  @Roles(Role.PARENT)
+  @Get('available-workers')
+  availableWorkers(
+    @Query('grade') grade: string,
+    @Query('date') date: string,
+    @Query('startTime') startTime: string,
+    @Query('hours') hours: string,
+  ) {
+    return this.bookings.findAvailableWorkers(grade, date, startTime, Number(hours));
+  }
+
   // 근무자 정산 요약 (':id'보다 먼저 선언해 경로 충돌 방지)
   @Get('worker/:workerId/settlement')
   settlement(@Param('workerId') workerId: string) {

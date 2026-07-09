@@ -19,6 +19,7 @@ function payloadFromDraft(d: any) {
     address: d.address,
     childAge: d.childAge.value,
     grade: d.grade,
+    workerId: d.selectedWorker?.userId, // 부모가 직접 선택한 전문가(없으면 자동 매칭)
   };
 }
 
@@ -505,7 +506,88 @@ export function AddressChild() {
           ))}
         </div>
       </Body>
-      <Foot><NextButton disabled={!(draft.address && draft.childAge)} onClick={() => go('pay')}>다음</NextButton></Foot>
+      <Foot><NextButton disabled={!(draft.address && draft.childAge)} onClick={() => { patch({ selectedWorker: undefined }); go('select-worker'); }}>다음</NextButton></Foot>
+    </>
+  );
+}
+
+/* ================= 전문가 직접 선택 ================= */
+export function SelectWorker() {
+  const { draft, patch, go } = useApp();
+  const [list, setList] = useState<any[] | null>(null);
+  const g = GRADES[draft.grade as GradeCode];
+
+  useEffect(() => {
+    const date = `2026-07-${pad2(draft.date)}`;
+    api
+      .availableWorkers(draft.grade as string, date, draft.time as string, draft.hours)
+      .then((rows: any) => setList(Array.isArray(rows) ? rows : []))
+      .catch(() => setList([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function pick(w: any) {
+    patch({ selectedWorker: w });
+    go('pay');
+  }
+
+  // 상세 이력 보기 — 전체 프로필(인증·리뷰 포함) 재조회 후 상세 화면으로
+  async function openDetail(w: any) {
+    try {
+      const full: any = await api.getWorker(w.userId);
+      patch({ matchedWorker: full, bookingId: undefined, detailBack: 'select-worker' });
+      go('worker-detail');
+    } catch {
+      alert('전문가 정보를 불러올 수 없습니다.');
+    }
+  }
+
+  return (
+    <>
+      <Body>
+        <TopBar back="address" title="전문가 선택" />
+        <Progress step={5} />
+        <Q sub={`${g.code}등급 · 7월 ${draft.date}일 ${draft.time}~ · ${draft.hours}시간`}>
+          함께할 전문가를<br />선택해 주세요
+        </Q>
+
+        {list === null && <div className="py-10 text-center text-[13px] text-muted">전문가를 찾는 중…</div>}
+
+        {list !== null && list.length === 0 && (
+          <div className="rounded-[18px] border border-line bg-cream px-5 py-10 text-center">
+            <div className="text-[28px]">🙏</div>
+            <p className="mt-2 text-[14px] font-semibold text-ink">지금 조건에 맞는 전문가가 없어요</p>
+            <p className="mt-1 text-[12.5px] text-muted">등급이나 시간을 바꿔서 다시 시도해 주세요.</p>
+            <button onClick={() => go('grade')} className="mt-4 rounded-xl border-[1.5px] border-terra px-5 py-2.5 text-[13px] font-bold text-terra-2">조건 변경</button>
+          </div>
+        )}
+
+        {list !== null && list.length > 0 && (
+          <div className="flex flex-col gap-2.5">
+            {list.map((w) => (
+              <div key={w.userId} className="rounded-[15px] border-[1.5px] border-line bg-cream px-[18px] py-4">
+                <div className="flex items-center gap-3.5">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl font-serif text-lg font-bold text-white" style={{ background: GRADES[w.grade as GradeCode]?.badge || '#888' }}>{w.grade}</span>
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-[15px]">{w.name} <span className="text-[12px] font-normal text-muted">· {w.licenseType || '전문가'}</span></b>
+                    <span className="block text-[12.5px] text-muted">
+                      ⭐ {(w.ratingAvg ?? 0).toFixed(1)}
+                      {w.ratingCount ? ` (${w.ratingCount})` : ''}
+                      {w.careCount ? ` · 돌봄 ${w.careCount}회` : ''}
+                      {w.careerYears ? ` · 경력 ${w.careerYears}년` : ''}
+                    </span>
+                    {w.careerNote && <span className="mt-0.5 block truncate text-[12px] text-ink-2">{w.careerNote}</span>}
+                  </span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => openDetail(w)} className="flex-1 rounded-xl border-[1.5px] border-line py-2.5 text-[13px] font-bold text-pine transition hover:border-pine">📋 상세 이력</button>
+                  <button onClick={() => pick(w)} className="flex-1 rounded-xl bg-terra py-2.5 text-[13px] font-bold text-white transition hover:brightness-95">이 전문가 선택</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Body>
     </>
   );
 }
@@ -551,11 +633,14 @@ export function Pay() {
   return (
     <>
       <Body>
-        <TopBar back="address" title="결제" />
-        <Progress step={5} />
-        <Q sub="결제 후 전문가가 자동 매칭됩니다">예약 내용을<br />확인해 주세요</Q>
+        <TopBar back="select-worker" title="결제" />
+        <Progress step={6} />
+        <Q sub="결제 후 선택한 전문가에게 배정됩니다">예약 내용을<br />확인해 주세요</Q>
         <div className="mb-4 rounded-[18px] border border-line bg-cream p-[22px]">
           <Row l="전문가 등급" v={`${g.code}등급 · ${g.name}`} />
+          {draft.selectedWorker && (
+            <Row l="선택 전문가" v={`${draft.selectedWorker.name}${draft.selectedWorker.licenseType ? ` · ${draft.selectedWorker.licenseType}` : ''}`} />
+          )}
           <Row l="일정" v={`7월 ${draft.date}일 ${draft.time}~ · ${draft.hours}시간`} />
           <Row l="아이" v={draft.childAge!.label} />
           <Row l="장소" v={draft.address} />
@@ -565,10 +650,7 @@ export function Pay() {
           <div className="mt-3.5 flex items-baseline justify-between border-t-2 border-ink pt-3.5"><span className="text-[14px] font-bold">총 결제금액</span><b className="font-serif text-[26px] text-terra-2">{won(base)}</b></div>
         </div>
         <div className="mx-0.5 mb-4 mt-1.5 text-[11.5px] text-muted">※ 플랫폼 수수료 15%({won(fee)})는 근무자 정산에서 차감됩니다.</div>
-        <Label>결제 수단</Label>
-        <div className="flex items-center gap-3.5 rounded-[15px] border-[1.5px] border-terra bg-[#FCEFE9] px-[18px] py-4">
-          <span className="text-2xl">💳</span><span className="flex-1"><b className="block text-[15px]">신한카드 ****1234</b><span className="text-[12.5px] text-muted">등록된 기본 카드</span></span>
-        </div>
+        {/* 결제 수단은 다음 단계(토스 결제창)에서 선택 */}
         {/* 안심 보험 + 필수 동의 */}
         <div className="mt-3"><InsuranceBadge /></div>
         <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-cream px-3.5 py-3 text-[12.5px] leading-relaxed text-ink-2">

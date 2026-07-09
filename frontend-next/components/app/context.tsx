@@ -7,7 +7,7 @@ import { GradeCode } from '@/lib/constants';
 export type ScreenName =
   | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
   | 'parent-home' | 'parent-bookings' | 'parent-carelog'
-  | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail' | 'safety-info'
+  | 'grade' | 'date' | 'time' | 'address' | 'select-worker' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail' | 'safety-info'
   | 'worker-home' | 'worker-carelog' | 'worker-observation'
   | 'admin-home';
 
@@ -18,6 +18,7 @@ export interface Draft {
   hours: number;
   address: string;
   childAge?: { value: string; label: string };
+  selectedWorker?: any;     // 부모가 직접 선택한 전문가 (userId 포함)
   bookingId?: string;
   matchedWorker?: any;
   rating: number;
