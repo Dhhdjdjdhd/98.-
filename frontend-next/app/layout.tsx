@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1, // 핀치 줌(두 손가락 확대) 비활성화
+  userScalable: false,
 };
 
 export default function RootLayout({

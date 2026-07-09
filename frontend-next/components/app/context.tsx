@@ -7,7 +7,7 @@ import { GradeCode } from '@/lib/constants';
 export type ScreenName =
   | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
   | 'parent-home' | 'parent-bookings' | 'parent-carelog'
-  | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail'
+  | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail' | 'safety-info'
   | 'worker-home' | 'worker-carelog'
   | 'admin-home';
 
@@ -25,6 +25,7 @@ export interface Draft {
   workerBookingId?: string; // 근무자 육아일지 대상
   viewBookingId?: string;   // 부모 육아일지 열람 대상
   detailBack?: ScreenName;  // 상세 이력 화면의 뒤로가기 목적지
+  safetyBack?: ScreenName;  // 안전·보험 안내 화면의 뒤로가기 목적지
 }
 
 const emptyDraft: Draft = { hours: 2, address: '', rating: 0, reviewTags: [] };

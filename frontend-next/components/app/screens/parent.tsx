@@ -24,15 +24,17 @@ function payloadFromDraft(d: any) {
 export function ParentHome() {
   const { user, live, go, logout, patch } = useApp();
   const [favs, setFavs] = useState<any[]>([]);
-  const [recent, setRecent] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [showFavs, setShowFavs] = useState(false);
+  const [showGrades, setShowGrades] = useState(false);
 
   async function load() {
     if (!live || !user) return;
     try {
-      const [fv, bookings]: any = await Promise.all([api.listFavorites(), api.listBookings({ parentId: user.id })]);
+      const [fv, bks]: any = await Promise.all([api.listFavorites(), api.listBookings({ parentId: user.id })]);
       setFavs(fv);
-      setRecent(bookings.slice(-2).reverse());
+      setBookings(bks);
     } catch {}
     setLoaded(true);
   }
@@ -53,20 +55,20 @@ export function ParentHome() {
       alert('해제 실패: ' + e.message);
     }
   }
-  async function doCancel(id: string) {
-    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
-    try {
-      await api.cancelBooking(id);
-      setRecent((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'CANCELED' } : b)));
-    } catch (e: any) {
-      alert('취소 실패: ' + e.message);
-    }
-  }
+
+  // 다가오는 예약: 취소·완료 아님 + 근무일이 오늘 이후, 임박한 순
+  const d = new Date();
+  const today = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const upcoming = bookings
+    .filter((b) => b.status !== 'CANCELED' && b.status !== 'DONE' && b.date >= today)
+    .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+  const next = upcoming[0];
 
   return (
     <>
       <Body>
-        <div className="mb-5 flex items-center justify-between">
+        {/* 헤더 */}
+        <div className="mb-4 flex items-center justify-between">
           <div className="text-[13px] text-muted">
             안녕하세요, {user?.name}님 👋
             <b className="mt-0.5 block font-serif text-xl font-bold text-ink">오늘도 안심하세요</b>
@@ -74,58 +76,121 @@ export function ParentHome() {
           <button onClick={logout} title="로그아웃" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-ivory-2">🚪</button>
         </div>
 
-        <button onClick={() => { patch({ grade: undefined }); go('grade'); }} className="relative mb-4 block w-full overflow-hidden rounded-[20px] bg-gradient-to-br from-terra to-terra-2 p-[22px] text-left text-white">
-          <h4 className="text-[19px] font-extrabold">전문 육아도우미 예약</h4>
-          <p className="mb-4 text-[13px] opacity-90">검증된 간호사·간호조무사를 원하는 시간에</p>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2.5 text-[14px] font-bold text-terra-2">예약 시작하기 →</span>
-          <span className="absolute bottom-1.5 right-3.5 text-[64px] opacity-25">🤱</span>
+        {/* 예약 배너 (컴팩트) */}
+        <button onClick={() => { patch({ grade: undefined }); go('grade'); }} className="relative mb-3 flex w-full items-center justify-between overflow-hidden rounded-[18px] bg-gradient-to-br from-terra to-terra-2 px-5 py-4 text-left text-white">
+          <div className="relative z-[1]">
+            <h4 className="text-[16px] font-extrabold">전문 육아도우미 예약</h4>
+            <p className="text-[12px] opacity-90">검증된 간호사를 원하는 시간에</p>
+          </div>
+          <span className="relative z-[1] shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-terra-2">시작 →</span>
+          <span className="absolute -bottom-2 right-2 text-[54px] opacity-20">🤱</span>
         </button>
 
-        <button onClick={() => go('parent-bookings')} className="mb-1 flex w-full items-center gap-3.5 rounded-[15px] border-[1.5px] border-line bg-cream px-4 py-4 text-left transition hover:border-terra">
-          <span className="text-2xl">📋</span>
-          <span className="flex-1"><b className="block text-[15px]">내 예약내역</b><span className="text-[12.5px] text-muted">지난 예약 보기 · 재예약</span></span>
-          <span className="text-muted">›</span>
-        </button>
+        {/* 안심 보험 배지 */}
+        <div className="mb-4"><InsuranceBadge /></div>
 
-        <Label>⭐ 즐겨찾기 전문가</Label>
-        {!live ? (
-          <div className="px-0.5 py-1.5 text-[13px] text-muted">로그인 시 실데이터 표시</div>
-        ) : favs.length ? (
-          <div className="flex flex-col gap-2.5">
-            {favs.map((fv) => (
-              <div key={fv.userId} className="flex items-center gap-3 rounded-2xl border border-line bg-cream p-3.5">
-                <div className="grid h-10 w-10 place-items-center rounded-xl font-serif text-lg font-bold text-white" style={{ background: GRADES[fv.grade as GradeCode]?.badge || '#888' }}>{fv.grade || '-'}</div>
-                <div className="flex-1">
-                  <b className="text-[14px]">{fv.name} {fv.licenseType}</b>
-                  <span className="block text-[12px] text-muted">{fv.careerNote} · ⭐{fv.ratingAvg ?? '-'}</span>
-                </div>
-                <button onClick={() => rebook(fv.grade)} className="rounded-xl border border-line bg-cream px-3 py-2 text-[13px] font-semibold text-pine">예약</button>
-                <button onClick={() => removeFav(fv.userId)} title="해제" className="grid h-[30px] w-[30px] place-items-center rounded-full border border-line bg-cream text-[14px] text-muted">✕</button>
+        {/* 빠른 메뉴 2열 */}
+        <div className="mb-4 grid grid-cols-2 gap-2.5">
+          <button onClick={() => go('parent-bookings')} className="flex items-center gap-2.5 rounded-[15px] border-[1.5px] border-line bg-cream px-4 py-3.5 text-left transition hover:border-terra">
+            <span className="text-xl">📋</span><span className="text-[14px] font-bold text-pine">예약내역</span>
+          </button>
+          <button onClick={() => setShowFavs((v) => !v)} className="flex items-center gap-2.5 rounded-[15px] border-[1.5px] border-line bg-cream px-4 py-3.5 text-left transition hover:border-terra">
+            <span className="text-xl">⭐</span>
+            <span className="text-[14px] font-bold text-pine">즐겨찾기{favs.length ? ` ${favs.length}` : ''}</span>
+            <span className="ml-auto text-[12px] text-muted">{showFavs ? '▴' : '▾'}</span>
+          </button>
+        </div>
+
+        {/* 즐겨찾기 목록 (토글) */}
+        {showFavs && (
+          <div className="mb-4 flex flex-col gap-2">
+            {favs.length ? favs.map((fv) => (
+              <div key={fv.userId} className="flex items-center gap-3 rounded-2xl border border-line bg-cream p-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl font-serif text-[15px] font-bold text-white" style={{ background: GRADES[fv.grade as GradeCode]?.badge || '#888' }}>{fv.grade || '-'}</div>
+                <div className="min-w-0 flex-1"><b className="text-[13.5px]">{fv.name} {fv.licenseType}</b><span className="block truncate text-[11.5px] text-muted">{fv.careerNote} · ⭐{fv.ratingAvg ?? '-'}</span></div>
+                <button onClick={() => rebook(fv.grade)} className="shrink-0 rounded-lg border border-line bg-cream px-2.5 py-1.5 text-[12.5px] font-semibold text-pine">예약</button>
+                <button onClick={() => removeFav(fv.userId)} title="해제" className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-line bg-cream text-[13px] text-muted">✕</button>
+              </div>
+            )) : <div className="rounded-2xl border border-dashed border-line py-4 text-center text-[13px] text-muted">아직 즐겨찾기한 전문가가 없어요</div>}
+          </div>
+        )}
+
+        {/* 다가오는 예약 (요약 1건) */}
+        <Label>다가오는 예약</Label>
+        {!live || !loaded ? (
+          <div className="px-0.5 py-1.5 text-[13px] text-muted">불러오는 중…</div>
+        ) : next ? (
+          <button onClick={() => go('parent-bookings')} className="flex w-full items-center justify-between rounded-2xl border border-line bg-cream p-4 text-left transition hover:border-terra">
+            <div>
+              <div className="text-[15px] font-extrabold text-pine">{CHILD_AGES[next.childAge] || '아이'} 돌봄 · {next.grade}등급</div>
+              <div className="mt-0.5 text-[13px] text-muted">{next.date} {next.startTime} · {next.hours}시간</div>
+            </div>
+            <Badge text={(BOOKING_STATUS[next.status] || [next.status, '#eee', '#888'])[0]} bg={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[1]} color={(BOOKING_STATUS[next.status] || ['', '#eee', '#888'])[2]} />
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-line py-5 text-center text-[13px] text-muted">예정된 예약이 없어요</div>
+        )}
+
+        {/* 전문가 등급 안내 (접이식) */}
+        <button onClick={() => setShowGrades((v) => !v)} className="mt-6 flex w-full items-center justify-between text-left">
+          <span className="text-[13px] font-bold uppercase tracking-wide text-muted">전문가 등급 안내</span>
+          <span className="text-[12px] text-muted">{showGrades ? '접기 ▴' : '펼치기 ▾'}</span>
+        </button>
+        {showGrades && (
+          <div className="mt-2.5 flex flex-col gap-2.5">
+            {GRADE_ORDER.map((g) => (
+              <div key={g} className="flex items-center gap-3 rounded-2xl border border-line bg-cream p-3.5">
+                <div className="grid h-10 w-10 place-items-center rounded-xl font-serif text-lg font-bold text-white" style={{ background: GRADES[g].badge }}>{g}</div>
+                <div className="flex-1"><b className="text-[14px]">{GRADES[g].name}</b><span className="block text-[12px] text-muted">시간제 전문 돌봄</span></div>
+                <div className="font-serif text-[15px] font-bold text-pine">{GRADES[g].price / 10000}만원<span className="text-[11px] font-normal text-muted">/시</span></div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="px-0.5 py-1.5 text-[13px] text-muted">아직 즐겨찾기한 전문가가 없어요</div>
         )}
-
-        <Label>최근 예약</Label>
-        {live && recent.length ? recent.map((b) => <BookingCard key={b.id} b={b} onRebook={rebook} onCancel={doCancel} />) : (
-          <div className="px-0.5 py-1.5 text-[13px] text-muted">{loaded ? '아직 예약 내역이 없어요' : '불러오는 중…'}</div>
-        )}
-
-        <Label>전문가 등급 안내</Label>
-        <div className="flex flex-col gap-2.5">
-          {GRADE_ORDER.map((g) => (
-            <div key={g} className="flex items-center gap-3 rounded-2xl border border-line bg-cream p-3.5">
-              <div className="grid h-10 w-10 place-items-center rounded-xl font-serif text-lg font-bold text-white" style={{ background: GRADES[g].badge }}>{g}</div>
-              <div className="flex-1"><b className="text-[14px]">{GRADES[g].name}</b><span className="block text-[12px] text-muted">시간제 전문 돌봄</span></div>
-              <div className="font-serif text-[15px] font-bold text-pine">{GRADES[g].price / 10000}만원<span className="text-[11px] font-normal text-muted">/시</span></div>
-            </div>
-          ))}
-        </div>
       </Body>
       <Foot><NextButton onClick={() => { patch({ grade: undefined }); go('grade'); }}>예약하기</NextButton></Foot>
     </>
+  );
+}
+
+// 플랫폼 보험 안심 배지 (클릭 → 안전·보험 안내)
+function InsuranceBadge() {
+  const { go, patch, screen } = useApp();
+  return (
+    <button onClick={() => { patch({ safetyBack: screen }); go('safety-info'); }} className="flex w-full items-center gap-2 rounded-xl border border-[#C9E0D2] bg-[#E9F0EC] px-3.5 py-2.5 text-left transition hover:brightness-95">
+      <span className="text-[15px]">🛡️</span>
+      <span className="flex-1 text-[12.5px] font-semibold leading-tight text-pine">플랫폼 보험 적용 <span className="font-normal text-pine/70">— 앱으로 예약한 돌봄만 보호돼요</span></span>
+      <span className="shrink-0 text-[12px] text-pine/60">안내 ›</span>
+    </button>
+  );
+}
+
+/* ================= 안전 · 보험 안내 ================= */
+export function SafetyInfo() {
+  const { draft } = useApp();
+  return (
+    <Body>
+      <TopBar back={draft.safetyBack || 'parent-home'} title="안전 · 보험 안내" />
+      <div className="mb-5 rounded-[18px] bg-gradient-to-br from-pine to-pine-2 p-6 text-white">
+        <div className="text-[32px]">🛡️</div>
+        <h3 className="mt-2 font-serif text-[20px] font-bold">플랫폼 보험으로 안심 돌봄</h3>
+        <p className="mt-1.5 text-[13px] leading-relaxed opacity-90">케어빌리지를 통해 예약·결제한 돌봄은 배상책임보험으로 보호됩니다.</p>
+      </div>
+
+      <Label>보장 범위</Label>
+      <div className="mb-4 rounded-2xl border border-[#C9E0D2] bg-[#E9F0EC] p-4">
+        <div className="mb-1.5 text-[14px] font-bold text-pine">✅ 플랫폼을 통한 돌봄</div>
+        <p className="text-[13px] leading-relaxed text-ink-2">앱에서 <b>예약·결제·매칭</b>된 돌봄에 한해, 근무 중 발생한 사고에 대해 배상책임보험이 적용되고 분쟁 조정을 지원합니다.</p>
+      </div>
+
+      <Label>보장 제외 · 면책</Label>
+      <div className="mb-4 rounded-2xl border border-[#E7C9C0] bg-[#FCEFE9] p-4">
+        <div className="mb-1.5 text-[14px] font-bold text-terra-2">❌ 앱 밖 사적(직접) 거래</div>
+        <p className="text-[13px] leading-relaxed text-ink-2">직접 연락·예약, 현금 지급 등 <b>정해진 절차를 벗어난 거래</b>는 보험·보상 대상이 아니며, 그로 인한 분쟁·사고에 대해 케어빌리지는 <b>책임지지 않습니다.</b></p>
+      </div>
+
+      <p className="px-1 text-[11.5px] leading-relaxed text-muted">※ 본 안내는 서비스 이해를 돕기 위한 요약입니다. 실제 보장 범위·한도·보상 절차는 보험 약관 및 이용약관에 따릅니다.</p>
+    </Body>
   );
 }
 
@@ -414,6 +479,7 @@ export function AddressChild() {
 
 export function Pay() {
   const { draft, go } = useApp();
+  const [agreed, setAgreed] = useState(false);
   const g = GRADES[draft.grade as GradeCode];
   const base = g.price * draft.hours;
   const fee = Math.round(base * 0.15);
@@ -441,8 +507,14 @@ export function Pay() {
         <div className="flex items-center gap-3.5 rounded-[15px] border-[1.5px] border-terra bg-[#FCEFE9] px-[18px] py-4">
           <span className="text-2xl">💳</span><span className="flex-1"><b className="block text-[15px]">신한카드 ****1234</b><span className="text-[12.5px] text-muted">등록된 기본 카드</span></span>
         </div>
+        {/* 안심 보험 + 필수 동의 */}
+        <div className="mt-3"><InsuranceBadge /></div>
+        <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-cream px-3.5 py-3 text-[12.5px] leading-relaxed text-ink-2">
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-terra" />
+          <span><b className="text-ink">[필수]</b> 보험·보상은 케어빌리지를 통한 예약에만 적용되며, 앱 외부 사적 거래로 발생한 문제에 플랫폼이 책임지지 않음을 확인했습니다.</span>
+        </label>
       </Body>
-      <Foot><NextButton onClick={() => go('matching')}>{won(base)} 결제하고 매칭</NextButton></Foot>
+      <Foot><NextButton disabled={!agreed} onClick={() => go('matching')}>{won(base)} 결제하고 매칭</NextButton></Foot>
     </>
   );
 }
@@ -562,6 +634,10 @@ export function Matched() {
             <div><b className="block font-serif text-xl text-pine">{care}</b><span className="text-[11.5px] text-muted">돌봄 횟수</span></div>
             <div><b className="block font-serif text-xl text-pine">{years}년</b><span className="text-[11.5px] text-muted">경력</span></div>
           </div>
+        </div>
+        <div className="mb-3">
+          <InsuranceBadge />
+          <p className="mt-1.5 px-1 text-[11.5px] text-muted">⚠️ 이후 앱 밖에서 직접 연락·거래하면 보험·보상을 받을 수 없어요.</p>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <button onClick={() => { patch({ detailBack: 'matched' }); go('worker-detail'); }} className="rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-pine">📋 상세 이력</button>
