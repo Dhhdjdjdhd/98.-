@@ -693,7 +693,6 @@ export function Matched() {
         <button onClick={doCancel} disabled={busy} className="mt-2.5 w-full rounded-2xl border-[1.5px] border-line bg-cream py-3.5 text-[14px] font-bold text-muted disabled:opacity-50">예약 취소</button>
         <button onClick={() => { resetDraft(); go('parent-home'); }} className="mt-2.5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
       </Body>
-      <Foot><NextButton onClick={() => go('active')}>근무 시작 화면 보기 →</NextButton></Foot>
     </>
   );
 }
