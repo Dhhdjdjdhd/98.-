@@ -144,6 +144,8 @@ export const api = {
   listCareLog: (bookingId: string) => get(`/bookings/${bookingId}/care-log`),
   addObservation: (bookingId: string, note: string, tags: string[] = []) =>
     post(`/bookings/${bookingId}/observation`, { note, tags }),
+  listBookingObservations: (bookingId: string) => get(`/bookings/${bookingId}/observations`),
+  deleteObservation: (obsId: string) => del(`/bookings/observations/${obsId}`),
   listObservations: (parentId?: string) =>
     get(`/bookings/observations/all${parentId ? `?parentId=${parentId}` : ''}`),
 

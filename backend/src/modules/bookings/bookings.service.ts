@@ -376,6 +376,30 @@ export class BookingsService {
     return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  // 관찰 비고 삭제 (작성한 근무자 본인만)
+  async deleteObservation(obsId: string, workerId: string) {
+    const obs = await this.db.findById<Observation>(COLLECTIONS.OBSERVATIONS, obsId);
+    if (!obs) throw new NotFoundException('비고를 찾을 수 없습니다.');
+    if (obs.workerId !== workerId) {
+      throw new BadRequestException('작성한 근무자만 삭제할 수 있습니다.');
+    }
+    await this.db.remove(COLLECTIONS.OBSERVATIONS, obsId);
+    return { deleted: true };
+  }
+
+  // 예약별 관찰 비고 (배정된 근무자 본인이 작성 내역 확인)
+  async listObservationsByBooking(bookingId: string, workerId: string) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.workerId !== workerId) {
+      throw new BadRequestException('배정된 근무자만 조회할 수 있습니다.');
+    }
+    const list = await this.db.find<Observation>(
+      COLLECTIONS.OBSERVATIONS,
+      (o) => o.bookingId === bookingId,
+    );
+    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
   async listCareLog(bookingId: string) {
     const logs = await this.db.find<CareLogEntry>(
       COLLECTIONS.CARE_LOGS,

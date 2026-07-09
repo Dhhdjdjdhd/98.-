@@ -202,13 +202,26 @@ export function WorkerObservation() {
   const { draft, go } = useApp();
   const [tags, setTags] = useState<string[]>([]);
   const [obsNote, setObsNote] = useState('');
+  const [saved, setSaved] = useState<any[]>([]);
   const toggle = (t: string) => setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  function load() {
+    if (draft.workerBookingId) api.listBookingObservations(draft.workerBookingId).then((r: any) => setSaved(Array.isArray(r) ? r : [])).catch(() => {});
+  }
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [draft.workerBookingId]);
   async function save() {
     const bid = draft.workerBookingId;
     if (!bid) return;
     if (tags.length === 0 && !obsNote.trim()) return alert('특징을 선택하거나 비고를 입력하세요.');
-    try { await api.addObservation(bid, obsNote.trim(), tags); alert('저장되었습니다. 관리자 분석에 활용됩니다.'); go('worker-home'); }
-    catch (e: any) { alert('저장 실패: ' + e.message); }
+    try {
+      await api.addObservation(bid, obsNote.trim(), tags);
+      setTags([]); setObsNote('');
+      load();
+      alert('저장되었습니다. 관리자 분석에 활용됩니다.');
+    } catch (e: any) { alert('저장 실패: ' + e.message); }
+  }
+  async function removeObs(obsId: string) {
+    if (!confirm('이 비고를 삭제할까요?')) return;
+    try { await api.deleteObservation(obsId); load(); } catch (e: any) { alert('삭제 실패: ' + e.message); }
   }
   return (
     <>
@@ -223,8 +236,25 @@ export function WorkerObservation() {
         </div>
         <Label>기타 · 자유 비고</Label>
         <textarea value={obsNote} onChange={(e) => setObsNote(e.target.value)} rows={4} placeholder="예) 특정 인형을 좋아해요 · 낮잠 시간 규칙적 · 특이사항 없음" className="w-full rounded-xl border-[1.5px] border-line bg-cream p-3 text-[14px] leading-relaxed text-ink outline-none focus:border-terra" />
+        <button onClick={save} className="mt-2 w-full rounded-2xl bg-terra py-3 text-[14px] font-bold text-white">비고 저장</button>
+
+        <Label>작성된 비고{saved.length ? ` (${saved.length})` : ''}</Label>
+        {saved.length ? saved.map((o) => (
+          <div key={o.id} className="mb-2 rounded-xl border border-line bg-cream p-3">
+            {o.tags?.length > 0 && (
+              <div className="mb-1.5 flex flex-wrap gap-1.5">
+                {o.tags.map((t: string) => <span key={t} className="rounded-full bg-ivory-2 px-2.5 py-1 text-[11.5px] font-semibold text-ink-2">{t}</span>)}
+              </div>
+            )}
+            {o.note && <p className="text-[13.5px] text-ink-2">{o.note}</p>}
+            <div className="mt-1 flex items-center justify-between">
+              <span className="text-[11px] text-muted">{o.createdAt}</span>
+              <button onClick={() => removeObs(o.id)} className="text-[12px] font-semibold text-muted hover:text-terra-2">삭제</button>
+            </div>
+          </div>
+        )) : <div className="py-3 text-[13px] text-muted">아직 작성된 비고가 없어요</div>}
       </Body>
-      <Foot><NextButton onClick={save}>비고 저장</NextButton></Foot>
+      <Foot><NextButton onClick={() => go('worker-home')}>닫기</NextButton></Foot>
     </>
   );
 }

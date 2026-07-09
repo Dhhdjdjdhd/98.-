@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateCareLogDto } from './dto/create-care-log.dto';
@@ -68,6 +68,20 @@ export class BookingsController {
   @Get('observations/all')
   listObservations(@Query('parentId') parentId?: string) {
     return this.bookings.listObservations(parentId);
+  }
+
+  // 예약별 관찰 비고 — 배정된 근무자 본인의 작성 내역
+  @Roles(Role.WORKER)
+  @Get(':id/observations')
+  bookingObservations(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.listObservationsByBooking(id, user.sub);
+  }
+
+  // 관찰 비고 삭제 — 작성한 근무자 본인만
+  @Roles(Role.WORKER)
+  @Delete('observations/:obsId')
+  deleteObservation(@Param('obsId') obsId: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.deleteObservation(obsId, user.sub);
   }
 
   // 예약자(부모) 연락처 — 배정된 근무자 본인만
