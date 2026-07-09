@@ -80,13 +80,13 @@ export function ParentHome() {
           <button onClick={logout} title="로그아웃" className="grid h-[34px] w-[34px] place-items-center rounded-full bg-ivory-2">🚪</button>
         </div>
 
-        {/* 예약 배너 (컴팩트) */}
-        <button onClick={() => { patch({ grade: undefined }); go('grade'); }} className="relative mb-3 flex w-full items-center justify-between overflow-hidden rounded-[18px] bg-gradient-to-br from-terra to-terra-2 px-5 py-4 text-left text-white">
-          <div className="relative z-[1]">
+        {/* 예약 배너 (브랜드 슬로건 통합) */}
+        <button onClick={() => { patch({ grade: undefined }); go('grade'); }} className="mb-3 block w-full overflow-hidden rounded-[18px] bg-gradient-to-br from-terra to-terra-2 px-5 py-4 text-left text-white">
+          <p className="font-serif text-[13px] leading-snug opacity-95">한 아이를 키우는 덴 온 마을이 필요합니다.<br />케어빌리지가 그 마을을 디지털로 잇습니다.</p>
+          <div className="mt-3 flex items-center justify-between">
             <h4 className="text-[16px] font-extrabold">전문 육아도우미 예약</h4>
-            <p className="text-[12px] opacity-90">검증된 간호사를 원하는 시간에</p>
+            <span className="shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-terra-2">시작 →</span>
           </div>
-          <span className="relative z-[1] shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-terra-2">시작 →</span>
         </button>
 
         {/* 안심 보험 배지 */}
