@@ -119,6 +119,12 @@ export class BookingsController {
     return this.bookings.workerInfo(id, user.sub);
   }
 
+  // 결제 전 매칭 가능 여부(조건에 맞는 전문가 존재)
+  @Get(':id/availability')
+  availability(@Param('id') id: string) {
+    return this.bookings.checkAvailability(id);
+  }
+
   // 상세
   @Get(':id')
   detail(@Param('id') id: string) {

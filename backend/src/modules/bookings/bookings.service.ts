@@ -95,6 +95,14 @@ export class BookingsService {
     return this.autoMatch(booking);
   }
 
+  // ---- 결제 전: 이 예약 조건(등급·시간)에 배정 가능한 전문가가 있는지 ----
+  async checkAvailability(bookingId: string) {
+    const booking = await this.getBooking(bookingId);
+    const rejected = new Set(booking.rejectedWorkerIds ?? []);
+    const candidates = await this.findCandidates(booking, rejected);
+    return { available: candidates.length > 0, count: candidates.length };
+  }
+
   // ---- 2-b. 실결제 승인(토스페이먼츠) → 결제 완료 + 자동 매칭 ----
   async confirmPayment(bookingId: string, paymentKey: string, amount: number) {
     const booking = await this.getBooking(bookingId);

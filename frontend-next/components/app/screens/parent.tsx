@@ -524,6 +524,13 @@ export function Pay() {
     try {
       const created: any = await api.createBooking(payloadFromDraft(draft));
       const bid = created.booking.id;
+      // 결제 전 매칭 가능 여부 확인 — 없으면 결제 안 하고 예약 롤백
+      const avail: any = await api.checkAvailability(bid);
+      if (!avail.available) {
+        try { await api.cancelBooking(bid); } catch {}
+        alert('지금 조건(등급·시간)에 맞는 전문가가 없어요.\n등급이나 시간을 바꿔서 다시 시도해 주세요.');
+        return;
+      }
       const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY as string;
       const toss = await loadTossPayments(clientKey);
       const payment = toss.payment({ customerKey: ANONYMOUS });

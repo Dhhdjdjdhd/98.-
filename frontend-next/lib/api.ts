@@ -133,6 +133,7 @@ export const api = {
   pay: (id: string) => post(`/bookings/${id}/pay`),
   confirmPayment: (bookingId: string, paymentKey: string, amount: number) =>
     post(`/bookings/${bookingId}/confirm-payment`, { paymentKey, amount }),
+  checkAvailability: (bookingId: string) => get(`/bookings/${bookingId}/availability`),
   accept: (id: string) => post(`/bookings/${id}/accept`),
   reject: (id: string) => post(`/bookings/${id}/reject`),
   rematch: (id: string) => post(`/bookings/${id}/rematch`),
