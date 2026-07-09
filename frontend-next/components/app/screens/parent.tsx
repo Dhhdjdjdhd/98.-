@@ -83,7 +83,6 @@ export function ParentHome() {
             <p className="text-[12px] opacity-90">검증된 간호사를 원하는 시간에</p>
           </div>
           <span className="relative z-[1] shrink-0 rounded-full bg-white px-3.5 py-2 text-[13px] font-bold text-terra-2">시작 →</span>
-          <span className="absolute -bottom-2 right-2 text-[54px] opacity-20">🤱</span>
         </button>
 
         {/* 안심 보험 배지 */}
