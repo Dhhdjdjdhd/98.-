@@ -8,7 +8,7 @@ export type ScreenName =
   | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
   | 'parent-home' | 'parent-bookings' | 'parent-carelog'
   | 'grade' | 'date' | 'time' | 'address' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail' | 'safety-info'
-  | 'worker-home' | 'worker-carelog'
+  | 'worker-home' | 'worker-carelog' | 'worker-observation'
   | 'admin-home';
 
 export interface Draft {

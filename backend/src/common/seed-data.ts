@@ -146,6 +146,7 @@ export async function seedDatabase(
   await db.replaceAll(COLLECTIONS.BOOKINGS, []);
   await db.replaceAll(COLLECTIONS.PAYMENTS, []);
   await db.replaceAll(COLLECTIONS.REVIEWS, reviews);
+  await db.replaceAll(COLLECTIONS.OBSERVATIONS, []);
 
   return true;
 }

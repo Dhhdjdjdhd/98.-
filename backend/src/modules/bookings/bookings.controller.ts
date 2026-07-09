@@ -51,6 +51,25 @@ export class BookingsController {
     return this.bookings.listCareLog(id);
   }
 
+  // 근무자 관찰 비고 작성 (배정된 근무자만)
+  @Roles(Role.WORKER)
+  @Post(':id/observation')
+  addObservation(
+    @Param('id') id: string,
+    @Body('note') note: string,
+    @Body('tags') tags: string[],
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.bookings.addObservation(id, user.sub, note, tags);
+  }
+
+  // 관찰 비고 조회 — 관리자 분석용 (?parentId= 로 부모별)
+  @Roles(Role.ADMIN)
+  @Get('observations/all')
+  listObservations(@Query('parentId') parentId?: string) {
+    return this.bookings.listObservations(parentId);
+  }
+
   // 예약자(부모) 연락처 — 배정된 근무자 본인만
   @Roles(Role.WORKER)
   @Get(':id/contact')

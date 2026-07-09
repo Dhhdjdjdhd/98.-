@@ -8,7 +8,7 @@ import {
   ParentHome, ParentBookings, ParentCareLog,
   GradeSelect, DateSelect, TimeSelect, AddressChild, Pay, Matching, Matched, Active, Review, Done, WorkerDetail, SafetyInfo,
 } from './screens/parent';
-import { WorkerHome, WorkerCareLog } from './screens/worker';
+import { WorkerHome, WorkerCareLog, WorkerObservation } from './screens/worker';
 import { AdminHome } from './screens/admin';
 
 function Router() {
@@ -35,6 +35,7 @@ function Router() {
     case 'done': return <Done />;
     case 'worker-home': return <WorkerHome />;
     case 'worker-carelog': return <WorkerCareLog />;
+    case 'worker-observation': return <WorkerObservation />;
     case 'admin-home': return <AdminHome />;
     default: return <Login />;
   }

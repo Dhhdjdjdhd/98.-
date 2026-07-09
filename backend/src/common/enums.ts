@@ -71,6 +71,7 @@ export const COLLECTIONS = {
   REVIEWS: 'reviews',
   FILES: 'files',
   CARE_LOGS: 'careLogs',
+  OBSERVATIONS: 'observations',
 } as const;
 
 // 근무자 제출 서류 종류 (파일 업로드 kind)

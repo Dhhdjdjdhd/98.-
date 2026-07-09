@@ -11,7 +11,7 @@ import {
   PaymentStatus,
   Role,
 } from '../../common/enums';
-import { Booking, Payment, CareLogEntry } from '../../common/models';
+import { Booking, Payment, CareLogEntry, Observation } from '../../common/models';
 import { genId } from '../../common/util/id.util';
 import { nowKst } from '../../common/util/kst.util';
 import { priceBooking } from '../../common/pricing';
@@ -341,6 +341,39 @@ export class BookingsService {
     };
     await this.db.insert(COLLECTIONS.CARE_LOGS, entry);
     return entry;
+  }
+
+  // ---- 근무자 관찰 비고 (아이/부모 특징 — 관리자 분석용) ----
+  async addObservation(bookingId: string, workerId: string, note: string, tags: string[] = []) {
+    const booking = await this.getBooking(bookingId);
+    if (booking.workerId !== workerId) {
+      throw new BadRequestException('배정된 근무자만 비고를 작성할 수 있습니다.');
+    }
+    const text = (note ?? '').trim();
+    const cleanTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
+    if (!text && cleanTags.length === 0) {
+      throw new BadRequestException('특징을 선택하거나 비고를 입력하세요.');
+    }
+    const observation: Observation = {
+      id: genId('obs'),
+      bookingId,
+      workerId,
+      parentId: booking.parentId,
+      childAge: booking.childAge,
+      tags: cleanTags,
+      note: text,
+      createdAt: nowKst(),
+    };
+    await this.db.insert(COLLECTIONS.OBSERVATIONS, observation);
+    return observation;
+  }
+
+  // 관리자 분석용: 부모별(또는 전체) 관찰 비고 목록
+  async listObservations(parentId?: string) {
+    const list = parentId
+      ? await this.db.find<Observation>(COLLECTIONS.OBSERVATIONS, (o) => o.parentId === parentId)
+      : await this.db.all<Observation>(COLLECTIONS.OBSERVATIONS);
+    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async listCareLog(bookingId: string) {

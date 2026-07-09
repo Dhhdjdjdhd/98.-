@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { won } from '@/lib/utils';
-import { GRADES, GradeCode, CHILD_AGES, CARE_TYPES } from '@/lib/constants';
+import { GRADES, GradeCode, CHILD_AGES, CARE_TYPES, CHILD_TRAITS } from '@/lib/constants';
 import { useApp } from '../context';
 import { Body, Foot, NextButton, TopBar, Label, Badge } from '../ui';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ export function WorkerHome() {
   const { user, live, logout, go, patch } = useApp();
   const [data, setData] = useState<{ earn: number; count: number; rating: any; grade: any; bookings: any[] } | null>(null);
   const [tick, setTick] = useState(0);
+  const [showUpcoming, setShowUpcoming] = useState<boolean | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -50,9 +52,63 @@ export function WorkerHome() {
   async function checkIn(id: string) {
     try { await api.checkIn(id); setTick((t) => t + 1); } catch (e: any) { alert('근무 시작 실패: ' + e.message); }
   }
-  async function complete(id: string) {
-    try { await api.complete(id); setTick((t) => t + 1); } catch (e: any) { alert('근무 완료 실패: ' + e.message); }
-  }
+  // 근무 카드 렌더
+  const renderCard = (b: any) => {
+    const st = b.status;
+    const accepted = !!b.workerAccepted;
+    const payout = Math.round((GRADES[b.grade as GradeCode]?.price || 0) * b.hours * 0.85);
+    const label: [string, string, string] = st === 'MATCHED'
+      ? (accepted ? ['수락됨', '#E9F0EC', '#16443C'] : ['수락 대기', '#FCEFE9', '#C0532F'])
+      : st === 'IN_PROGRESS' ? ['근무중', '#E9F0EC', '#16443C'] : ['완료', '#EEF2F6', '#5A6B7B'];
+    return (
+      <div key={b.id} className="mb-3 rounded-2xl border border-line bg-cream p-4">
+        <div className="mb-3 flex items-start justify-between">
+          <div><h4 className="text-[16px] font-extrabold text-pine">{CHILD_AGES[b.childAge] || '아이'} 돌봄</h4><div className="mt-0.5 text-[13px] text-muted">{b.date} {b.startTime} · {b.hours}시간 · {b.grade}등급</div></div>
+          <Badge text={label[0]} bg={label[1]} color={label[2]} />
+        </div>
+        <div className="text-[13px] text-muted">📍 {b.address}</div>
+        {b.parent && (
+          <div className="mt-2 flex items-center justify-between rounded-xl bg-ivory-2 px-3 py-2">
+            <div className="text-[13px] leading-tight">
+              <span className="text-muted">예약자</span> <b className="text-ink">{b.parent.name}</b>
+              <div className="text-[12.5px] text-muted">{b.parent.phone}</div>
+            </div>
+            <a href={`tel:${b.parent.phone}`} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-pine">📞 전화</a>
+          </div>
+        )}
+        <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">정산 예정 {won(payout)}</div>
+        {st === 'MATCHED' && !accepted && (
+          <div className="mt-2.5 grid grid-cols-[1fr_1.6fr] gap-2">
+            <button onClick={() => reject(b.id)} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-muted">거절</button>
+            <button onClick={() => accept(b.id)} className="rounded-xl bg-terra py-3 text-[14px] font-bold text-white">수락하기</button>
+          </div>
+        )}
+        {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작</button>}
+        {st === 'IN_PROGRESS' && (
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-carelog'); }} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지</button>
+            <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-observation'); }} className="rounded-xl bg-pine py-3 text-[14px] font-bold text-white">📋 특징·비고</button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // 근무중 / 근무 예정 / 근무 이력 3구분
+  const bks = data?.bookings ?? [];
+  const asc = (a: any, b: any) => (a.date + a.startTime).localeCompare(b.date + b.startTime);
+  const desc = (a: any, b: any) => (b.date + b.startTime).localeCompare(a.date + a.startTime);
+  const active = bks.filter((b: any) => b.status === 'IN_PROGRESS').sort(asc);
+  const upcoming = bks.filter((b: any) => b.status === 'MATCHED').sort(asc);
+  const history = bks.filter((b: any) => b.status === 'DONE').sort(desc);
+  const upcomingOpen = showUpcoming ?? active.length === 0; // 근무중 있으면 기본 접힘
+
+  const SectionToggle = ({ title, count, open, onToggle }: { title: string; count: number; open: boolean; onToggle: () => void }) => (
+    <button onClick={onToggle} className="mt-1 flex w-full items-center justify-between py-2 text-left">
+      <span className="text-[13px] font-bold uppercase tracking-wide text-muted">{title} ({count})</span>
+      <span className="text-[12px] text-muted">{open ? '접기 ▴' : '펼치기 ▾'}</span>
+    </button>
+  );
 
   return (
     <Body>
@@ -73,47 +129,29 @@ export function WorkerHome() {
       <Label>내 배정 근무</Label>
       {!live || !user ? <div className="py-5 text-center text-[14px] text-muted">데모 모드 — 로그인 시 실데이터</div>
         : !data ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
-        : data.bookings.length ? data.bookings.map((b) => {
-            const st = b.status;
-            const accepted = !!b.workerAccepted;
-            const payout = Math.round((GRADES[b.grade as GradeCode]?.price || 0) * b.hours * 0.85);
-            const label = st === 'MATCHED'
-              ? (accepted ? ['수락됨', '#E9F0EC', '#16443C'] : ['수락 대기', '#FCEFE9', '#C0532F'])
-              : st === 'IN_PROGRESS' ? ['근무중', '#E9F0EC', '#16443C'] : ['완료', '#EEF2F6', '#5A6B7B'];
-            return (
-              <div key={b.id} className="mb-3 rounded-2xl border border-line bg-cream p-4">
-                <div className="mb-3 flex items-start justify-between">
-                  <div><h4 className="text-[16px] font-extrabold text-pine">{CHILD_AGES[b.childAge] || '아이'} 돌봄</h4><div className="mt-0.5 text-[13px] text-muted">{b.date} {b.startTime} · {b.hours}시간 · {b.grade}등급</div></div>
-                  <Badge text={label[0]} bg={label[1]} color={label[2]} />
-                </div>
-                <div className="text-[13px] text-muted">📍 {b.address}</div>
-                {b.parent && (
-                  <div className="mt-2 flex items-center justify-between rounded-xl bg-ivory-2 px-3 py-2">
-                    <div className="text-[13px] leading-tight">
-                      <span className="text-muted">예약자</span> <b className="text-ink">{b.parent.name}</b>
-                      <div className="text-[12.5px] text-muted">{b.parent.phone}</div>
-                    </div>
-                    <a href={`tel:${b.parent.phone}`} className="shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-pine">📞 전화</a>
-                  </div>
-                )}
-                <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">정산 예정 {won(payout)}</div>
-                {st === 'MATCHED' && !accepted && (
-                  <div className="mt-2.5 grid grid-cols-[1fr_1.6fr] gap-2">
-                    <button onClick={() => reject(b.id)} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-muted">거절</button>
-                    <button onClick={() => accept(b.id)} className="rounded-xl bg-terra py-3 text-[14px] font-bold text-white">수락하기</button>
-                  </div>
-                )}
-                {st === 'MATCHED' && accepted && <button onClick={() => checkIn(b.id)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 시작</button>}
-                {st === 'IN_PROGRESS' && (
-                  <div className="mt-2.5 grid grid-cols-2 gap-2">
-                    <button onClick={() => { patch({ workerBookingId: b.id }); go('worker-carelog'); }} className="rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">📝 육아일지</button>
-                    <button onClick={() => complete(b.id)} className="rounded-xl bg-pine py-3 text-[14px] font-bold text-white">근무 완료</button>
-                  </div>
-                )}
-              </div>
-            );
-          })
-        : <div className="py-5 text-center text-[14px] text-muted">아직 배정된 근무가 없습니다</div>}
+        : active.length + upcoming.length + history.length === 0 ? <div className="py-5 text-center text-[14px] text-muted">아직 배정된 근무가 없습니다</div>
+        : (
+          <>
+            {active.length > 0 && (
+              <>
+                <div className="mb-2 mt-1 text-[13px] font-bold uppercase tracking-wide text-pine">🩺 근무중 ({active.length})</div>
+                {active.map(renderCard)}
+              </>
+            )}
+            {upcoming.length > 0 && (
+              <>
+                <SectionToggle title="근무 예정" count={upcoming.length} open={upcomingOpen} onToggle={() => setShowUpcoming(!upcomingOpen)} />
+                {upcomingOpen && upcoming.map(renderCard)}
+              </>
+            )}
+            {history.length > 0 && (
+              <>
+                <SectionToggle title="근무 이력" count={history.length} open={showHistory} onToggle={() => setShowHistory((v) => !v)} />
+                {showHistory && <div className="opacity-70">{history.map(renderCard)}</div>}
+              </>
+            )}
+          </>
+        )}
     </Body>
   );
 }
@@ -133,10 +171,8 @@ export function WorkerCareLog() {
     try { await api.addCareLog(bid, type, text); setNote(''); setTick((t) => t + 1); }
     catch (e: any) { alert('기록 실패: ' + e.message); }
   }
-  async function finish() {
-    if (api.isLoggedIn() && draft.workerBookingId) {
-      try { await api.complete(draft.workerBookingId); } catch (e: any) { return alert('완료 실패: ' + e.message); }
-    }
+  function finish() {
+    // 근무 완료(종료)는 부모가 확정 — 근무자는 일지만 저장하고 닫는다
     go('worker-home');
   }
 
@@ -156,7 +192,39 @@ export function WorkerCareLog() {
         <Label>작성된 기록</Label>
         <CareLogList bookingId={draft.workerBookingId} refreshKey={tick} />
       </Body>
-      <Foot><NextButton onClick={finish}>근무 완료</NextButton></Foot>
+      <Foot><NextButton onClick={finish}>저장하고 닫기</NextButton></Foot>
+    </>
+  );
+}
+
+/* ================= 아이 특징 · 비고 (관리자 분석용) ================= */
+export function WorkerObservation() {
+  const { draft, go } = useApp();
+  const [tags, setTags] = useState<string[]>([]);
+  const [obsNote, setObsNote] = useState('');
+  const toggle = (t: string) => setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  async function save() {
+    const bid = draft.workerBookingId;
+    if (!bid) return;
+    if (tags.length === 0 && !obsNote.trim()) return alert('특징을 선택하거나 비고를 입력하세요.');
+    try { await api.addObservation(bid, obsNote.trim(), tags); alert('저장되었습니다. 관리자 분석에 활용됩니다.'); go('worker-home'); }
+    catch (e: any) { alert('저장 실패: ' + e.message); }
+  }
+  return (
+    <>
+      <Body>
+        <TopBar back="worker-home" title="아이 특징 · 비고" />
+        <div className="mb-3 rounded-xl bg-ivory-2 p-3.5 text-[12.5px] leading-relaxed text-muted">아이·부모의 특이사항을 남겨주세요. 관리자가 분석해 다음 돌봄에 참고합니다. <b className="text-ink-2">부모에게는 노출되지 않아요.</b></div>
+        <Label>해당하는 특징 (복수 선택)</Label>
+        <div className="flex flex-wrap gap-2">
+          {CHILD_TRAITS.map((t) => (
+            <button key={t} onClick={() => toggle(t)} className={'rounded-full border-[1.5px] px-3.5 py-2 text-[13px] font-semibold transition ' + (tags.includes(t) ? 'border-terra bg-terra text-white' : 'border-line bg-cream text-ink hover:border-terra')}>{t}</button>
+          ))}
+        </div>
+        <Label>기타 · 자유 비고</Label>
+        <textarea value={obsNote} onChange={(e) => setObsNote(e.target.value)} rows={4} placeholder="예) 특정 인형을 좋아해요 · 낮잠 시간 규칙적 · 특이사항 없음" className="w-full rounded-xl border-[1.5px] border-line bg-cream p-3 text-[14px] leading-relaxed text-ink outline-none focus:border-terra" />
+      </Body>
+      <Foot><NextButton onClick={save}>비고 저장</NextButton></Foot>
     </>
   );
 }

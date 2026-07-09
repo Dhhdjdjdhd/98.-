@@ -111,6 +111,18 @@ export interface FileDoc {
   createdAt: string;
 }
 
+// 근무자 관찰 비고 (아이/부모 특징 — 관리자 분석·서비스 개선용 데이터)
+export interface Observation {
+  id: string;
+  bookingId: string;
+  workerId: string; // 작성한 근무자 User.id
+  parentId: string; // 대상 부모 User.id
+  childAge: ChildAge;
+  tags: string[]; // 선택한 특징 태그 (낯가림 등)
+  note: string; // 자유 비고
+  createdAt: string; // KST
+}
+
 // 리뷰 (부모↔근무자 양방향)
 export interface Review {
   id: string;

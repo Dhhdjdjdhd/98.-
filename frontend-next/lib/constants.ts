@@ -28,6 +28,13 @@ export const CARE_TYPES: { key: string; label: string; icon: string }[] = [
   { key: 'meal', label: '이유식', icon: '🥣' },
 ];
 
+// 근무자 관찰 비고용 — 흔한 아이 특징 태그
+export const CHILD_TRAITS: string[] = [
+  '낯가림', '분리불안', '활발해요', '순해요', '수줍음',
+  '알레르기 있음', '편식', '특정 음식 거부',
+  '낮잠 규칙적', '밤에 자주 깸', '배변훈련 중', '투약 필요', '특정 장난감 선호',
+];
+
 // 상태 → [라벨, 배경, 글자색]
 export const BOOKING_STATUS: Record<string, [string, string, string]> = {
   REQUESTED: ['결제대기', '#FBF1E0', '#B57F2E'],

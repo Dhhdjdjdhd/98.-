@@ -142,6 +142,10 @@ export const api = {
   addCareLog: (bookingId: string, type: string, note: string) =>
     post(`/bookings/${bookingId}/care-log`, { type, note }),
   listCareLog: (bookingId: string) => get(`/bookings/${bookingId}/care-log`),
+  addObservation: (bookingId: string, note: string, tags: string[] = []) =>
+    post(`/bookings/${bookingId}/observation`, { note, tags }),
+  listObservations: (parentId?: string) =>
+    get(`/bookings/observations/all${parentId ? `?parentId=${parentId}` : ''}`),
 
   // ---- 즐겨찾기 ----
   listFavorites: () => get('/favorites'),
