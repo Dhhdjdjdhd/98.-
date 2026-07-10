@@ -470,7 +470,16 @@ export class BookingsService {
     let bookings = await this.db.all<Booking>(COLLECTIONS.BOOKINGS);
     if (filter.parentId) bookings = bookings.filter((b) => b.parentId === filter.parentId);
     if (filter.workerId) bookings = bookings.filter((b) => b.workerId === filter.workerId);
-    return bookings;
+    // 각 예약의 결제 상태를 함께 실어준다 (환불 완료 표시 등에 사용)
+    return Promise.all(
+      bookings.map(async (b) => {
+        const p = await this.db.findOne<Payment>(
+          COLLECTIONS.PAYMENTS,
+          (x) => x.bookingId === b.id,
+        );
+        return { ...b, paymentStatus: p?.status ?? null };
+      }),
+    );
   }
 
   // ---- 관리자: 전체 예약 (+ 부모·근무자 이름) ----

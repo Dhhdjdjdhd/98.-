@@ -276,6 +276,11 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
         </div>
       )}
       <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">이용 금액 {won(amount)}</div>
+      {b.status === 'CANCELED' && b.paymentStatus === 'REFUNDED' && (
+        <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#F3EDED] px-3 py-2.5 text-[13px] font-semibold text-[#B0757A]">
+          <span>↩️</span><span>결제 금액 {won(amount)} 환불 완료</span>
+        </div>
+      )}
       {b.status === 'IN_PROGRESS' && (
         <button onClick={openActive} className="mt-2 w-full rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-pine">🩺 근무 현황 보기</button>
       )}
@@ -762,7 +767,7 @@ export function Matched() {
     setBusy(true);
     try {
       await api.cancelBooking(draft.bookingId);
-      alert('예약이 취소되었습니다.');
+      alert('예약이 취소되고 결제 금액이 환불되었습니다.');
       resetDraft();
       go('parent-home');
     } catch (e: any) { alert('취소 실패: ' + e.message); }
