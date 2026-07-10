@@ -821,6 +821,9 @@ export function WorkerDetail() {
   const [info, setInfo] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const goHome = () => { resetDraft(); go('parent-home'); };
+  // 진입 경로(detailBack)가 있으면 그리로 뒤로가기, 없으면 홈으로
+  const goBack = () => { if (draft.detailBack) go(draft.detailBack); else goHome(); };
+  const backLabel = draft.detailBack ? '‹ 뒤로' : '🏠 홈으로';
   useEffect(() => {
     const loadReviews = (id?: string) => { if (id) api.listReviews(id).then((r: any) => setReviews(Array.isArray(r) ? r : [])).catch(() => {}); };
     const w = draft.matchedWorker;
@@ -844,7 +847,7 @@ export function WorkerDetail() {
         <TopBar back={draft.detailBack || 'matched'} title="상세 이력" />
         <div className="py-12 text-center text-[14px] text-muted">
           전문가 정보를 불러올 수 없습니다.
-          <button onClick={goHome} className="mx-auto mt-4 block rounded-xl bg-pine px-5 py-2.5 text-[13px] font-bold text-white">🏠 홈으로</button>
+          <button onClick={goBack} className="mx-auto mt-4 block rounded-xl bg-pine px-5 py-2.5 text-[13px] font-bold text-white">{backLabel}</button>
         </div>
       </Body>
     );
@@ -887,7 +890,7 @@ export function WorkerDetail() {
           {r.comment && <p className="text-[13.5px] text-ink-2">{r.comment}</p>}
         </div>
       )) : <div className="py-6 text-center text-[13px] text-muted">아직 받은 리뷰가 없어요</div>}
-      <button onClick={goHome} className="mt-5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">🏠 홈으로</button>
+      <button onClick={goBack} className="mt-5 w-full rounded-2xl bg-pine py-3.5 text-[14px] font-bold text-white">{backLabel}</button>
     </Body>
   );
 }
