@@ -518,7 +518,7 @@ export function SelectWorker() {
   const g = GRADES[draft.grade as GradeCode];
 
   useEffect(() => {
-    const date = `2026-07-${pad2(draft.date)}`;
+    const date = `2026-07-${pad2(draft.date as number)}`;
     api
       .availableWorkers(draft.grade as string, date, draft.time as string, draft.hours)
       .then((rows: any) => setList(Array.isArray(rows) ? rows : []))
