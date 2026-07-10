@@ -26,6 +26,9 @@ export class AdminService {
       careerNote?: string;
       grade?: Grade;
       docFiles?: Record<string, string>;
+      bankName?: string;
+      accountNumber?: string;
+      accountHolder?: string;
     },
   ) {
     const worker = await this.getWorker(userId);
@@ -40,6 +43,9 @@ export class AdminService {
     if (patch.careerNote !== undefined) profilePatch.careerNote = patch.careerNote;
     if (patch.grade !== undefined) profilePatch.grade = patch.grade;
     if (patch.docFiles !== undefined) profilePatch.docFiles = patch.docFiles;
+    if (patch.bankName !== undefined) profilePatch.bankName = patch.bankName;
+    if (patch.accountNumber !== undefined) profilePatch.accountNumber = patch.accountNumber;
+    if (patch.accountHolder !== undefined) profilePatch.accountHolder = patch.accountHolder;
     const updated = await this.db.update<WorkerProfile>(COLLECTIONS.WORKERS, worker.id, profilePatch);
     return { ...updated, name: patch.name };
   }
