@@ -38,4 +38,17 @@ export class RegisterWorkerDto {
   @IsString()
   @IsOptional()
   careerNote?: string;
+
+  // 정산 계좌 (수동 이체용) — 프론트에서 입력 유도, 미입력 시 관리자 편집으로 보완
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+
+  @IsString()
+  @IsOptional()
+  accountNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  accountHolder?: string;
 }

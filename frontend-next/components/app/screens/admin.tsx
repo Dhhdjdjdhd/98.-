@@ -75,9 +75,14 @@ export function AdminHome() {
     }
   }
   async function doSettle(bookingId: string) {
-    if (!confirm('이 근무의 정산(근무자 입금)을 승인할까요?')) return;
+    if (!confirm('이 근무의 정산(근무자 입금)을 승인할까요?\n먼저 아래 계좌로 실제 이체를 완료한 뒤 승인하세요.')) return;
     try { await api.settle(bookingId); loadSettlements(); }
     catch (e: any) { alert('정산 실패: ' + e.message); }
+  }
+  async function copyAccount(s: any) {
+    const text = `${s.bankName || ''} ${s.accountNumber || ''} ${s.accountHolder || ''}`.trim();
+    try { await navigator.clipboard.writeText(text); alert('계좌정보를 복사했습니다.\n' + text); }
+    catch { alert(text); }
   }
   const settlePending = settlements ? settlements.filter((s) => s.paymentStatus !== 'SETTLED') : [];
   // 정산 완료는 근무 종료일 기준 최근 2주(14일)만 노출
@@ -100,6 +105,20 @@ export function AdminHome() {
         <div className="flex justify-between py-0.5"><span className="text-muted">플랫폼 수수료(15%)</span><span className="text-muted">− {won(s.feeAmount)}</span></div>
         <div className="mt-1 flex justify-between border-t border-line pt-1.5"><span className="font-bold text-ink">근무자 정산액</span><b className="font-serif text-[15px] text-terra-2">{won(s.workerPayout)}</b></div>
       </div>
+      {!done && (
+        s.accountNumber ? (
+          <div className="mt-2 rounded-xl border border-line bg-white p-3 text-[13px]">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-muted">입금 계좌</span>
+              <button onClick={() => copyAccount(s)} className="rounded-lg border border-line px-2.5 py-1 text-[12px] font-semibold text-pine">복사</button>
+            </div>
+            <div><b className="text-pine">{s.bankName || '은행 미상'}</b> <span className="text-ink">{s.accountNumber}</span></div>
+            <div className="text-[12px] text-muted">예금주 {s.accountHolder || '-'}</div>
+          </div>
+        ) : (
+          <div className="mt-2 rounded-xl bg-[#FCEFE9] px-3 py-2.5 text-[12.5px] font-semibold text-terra-2">⚠ 정산 계좌 미등록 — 근무자에게 계좌 등록을 요청하세요</div>
+        )
+      )}
       {!done && <button onClick={() => doSettle(s.bookingId)} className="mt-2.5 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white">💸 근무자에게 입금 (정산 완료)</button>}
     </div>
   );
@@ -238,6 +257,9 @@ function WorkerInfoCard({ w, onChanged, onView }: { w: any; onChanged: () => voi
     careerYears: String(w.careerYears ?? ''),
     careerNote: w.careerNote || '',
     grade: w.grade || 'B',
+    bankName: w.bankName || '',
+    accountNumber: w.accountNumber || '',
+    accountHolder: w.accountHolder || '',
   });
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
   async function replaceDoc(kind: string, file: File) {
@@ -261,6 +283,9 @@ function WorkerInfoCard({ w, onChanged, onView }: { w: any; onChanged: () => voi
         careerYears: parseInt(f.careerYears || '0', 10),
         careerNote: f.careerNote.trim(),
         grade: f.grade,
+        bankName: f.bankName.trim(),
+        accountNumber: f.accountNumber.trim(),
+        accountHolder: f.accountHolder.trim(),
       });
       alert('수정되었습니다.');
       onChanged();
@@ -320,6 +345,14 @@ function WorkerInfoCard({ w, onChanged, onView }: { w: any; onChanged: () => voi
           <div>
             <label className="mb-1 block text-[12px] font-bold text-muted">경력 요약</label>
             <input value={f.careerNote} onChange={set('careerNote')} placeholder="예) 신생아실 7년" className={inputCls} />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-bold text-muted">정산 계좌 (급여 입금용)</label>
+            <div className="space-y-2">
+              <input value={f.bankName} onChange={set('bankName')} placeholder="은행 (예: 국민은행)" className={inputCls} />
+              <input value={f.accountNumber} onChange={set('accountNumber')} placeholder="계좌번호 ('-' 없이 숫자만)" className={inputCls} />
+              <input value={f.accountHolder} onChange={set('accountHolder')} placeholder="예금주" className={inputCls} />
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-[12px] font-bold text-muted">첨부 서류 (누르면 확대 · 교체 가능)</label>

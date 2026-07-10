@@ -116,6 +116,9 @@ export class UsersService {
       ratingAvg: 0,
       ratingCount: 0,
       careCount: 0,
+      bankName: dto.bankName,
+      accountNumber: dto.accountNumber,
+      accountHolder: dto.accountHolder,
       createdAt: now,
     };
     await this.db.insert(COLLECTIONS.WORKERS, profile);

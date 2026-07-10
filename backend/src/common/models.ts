@@ -56,6 +56,9 @@ export interface WorkerProfile {
   ratingAvg: number; // 평균 평점
   ratingCount: number; // 리뷰 수
   careCount: number; // 완료 돌봄 횟수
+  bankName?: string; // 정산 계좌 은행명 (수동 이체용)
+  accountNumber?: string; // 정산 계좌번호
+  accountHolder?: string; // 예금주
   createdAt: string;
 }
 

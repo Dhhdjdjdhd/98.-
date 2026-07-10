@@ -343,6 +343,9 @@ export class BookingsService {
       const p = payments.find((x) => x.bookingId === b.id);
       if (!p || (p.status !== PaymentStatus.PAID && p.status !== PaymentStatus.SETTLED)) continue;
       const worker = b.workerId ? await this.users.getUser(b.workerId) : null;
+      const wProfile = b.workerId
+        ? await this.users.getWorkerByUserId(b.workerId).catch(() => null)
+        : null;
       const parent = await this.users.getUser(b.parentId);
       rows.push({
         bookingId: b.id,
@@ -353,6 +356,9 @@ export class BookingsService {
         parentName: parent?.name,
         workerId: b.workerId,
         workerName: worker?.name,
+        bankName: wProfile?.bankName,
+        accountNumber: wProfile?.accountNumber,
+        accountHolder: wProfile?.accountHolder,
         base: p.base,
         feeAmount: p.feeAmount,
         workerPayout: p.workerPayout,

@@ -175,7 +175,7 @@ const WORKER_DOCS: [string, string][] = [
 
 export function SignupWorker() {
   const { onAuthed, live } = useApp();
-  const [f, setF] = useState({ name: '', phone: '', password: '', grade: 'B', careerYears: '3', careerNote: '' });
+  const [f, setF] = useState({ name: '', phone: '', password: '', grade: 'B', careerYears: '3', careerNote: '', bankName: '', accountNumber: '', accountHolder: '' });
   const [license, setLicense] = useState('간호사');
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
@@ -200,6 +200,7 @@ export function SignupWorker() {
       const u = await api.signupWorker({
         name: f.name, phone: f.phone, password: f.password,
         licenseType: license, grade, careerYears: parseInt(f.careerYears || '0', 10), careerNote: f.careerNote,
+        bankName: f.bankName, accountNumber: f.accountNumber, accountHolder: f.accountHolder,
       });
       for (const [kind] of WORKER_DOCS) await uploadDoc(kind);
       alert('가입 신청 완료! 관리자 승인 후 활동할 수 있어요.');
@@ -236,6 +237,10 @@ export function SignupWorker() {
           <Field label="경력 (년)"><Input type="number" value={f.careerYears} onChange={set('careerYears')} /></Field>
           <Field label="경력 요약"><Input value={f.careerNote} onChange={set('careerNote')} placeholder="예) 신생아실 3년" /></Field>
         </div>
+        <div className="mb-3 mt-2 text-[12px] font-bold uppercase tracking-wide text-muted">정산 계좌 (급여 입금용)</div>
+        <Field label="은행"><Input value={f.bankName} onChange={set('bankName')} placeholder="예) 국민은행" /></Field>
+        <Field label="계좌번호"><Input value={f.accountNumber} onChange={set('accountNumber')} placeholder="'-' 없이 숫자만" /></Field>
+        <Field label="예금주"><Input value={f.accountHolder} onChange={set('accountHolder')} placeholder="예) 김서연" /></Field>
         <div className="mb-3 mt-2 text-[12px] font-bold uppercase tracking-wide text-muted">서류 첨부 (이미지)</div>
         {WORKER_DOCS.map(([kind, label]) => (
           <Field key={kind} label={label}>
