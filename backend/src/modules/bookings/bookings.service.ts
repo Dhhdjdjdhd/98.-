@@ -165,6 +165,7 @@ export class BookingsService {
 
     await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
       status: PaymentStatus.PAID,
+      paymentKey, // 이후 환불 시 사용
     });
     // 부모가 선택한 전문가가 있으면 그대로 배정, 없으면 자동 매칭
     if (booking.workerId) {
@@ -384,19 +385,42 @@ export class BookingsService {
     ) {
       throw new BadRequestException('근무가 시작되었거나 종료된 예약은 취소할 수 없습니다.');
     }
-    const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
-      status: BookingStatus.CANCELED,
-    });
+    // 결제 완료 건이면 실제 환불을 먼저 처리 — 환불 성공해야 예약 취소를 확정한다.
     const payment = await this.db.findOne<Payment>(
       COLLECTIONS.PAYMENTS,
       (p) => p.bookingId === bookingId,
     );
     if (payment && payment.status === PaymentStatus.PAID) {
+      await this.refundToss(payment); // 실패 시 예외 → 예약 취소도 롤백(상태 그대로 유지)
       await this.db.update<Payment>(COLLECTIONS.PAYMENTS, payment.id, {
         status: PaymentStatus.REFUNDED,
       });
     }
+    const updated = await this.db.update<Booking>(COLLECTIONS.BOOKINGS, bookingId, {
+      status: BookingStatus.CANCELED,
+    });
     return updated;
+  }
+
+  // ---- 토스 결제 전액 환불 (실결제 건만) ----
+  private async refundToss(payment: Payment) {
+    // 데모 결제(pay 엔드포인트)는 paymentKey가 없으므로 실제 환불 없이 상태만 처리
+    if (!payment.paymentKey) return;
+    const secret = process.env.TOSS_SECRET_KEY;
+    if (!secret) throw new BadRequestException('결제 설정 오류: 시크릿 키가 없습니다.');
+    const auth = Buffer.from(`${secret}:`).toString('base64');
+    const res = await fetch(
+      `https://api.tosspayments.com/v1/payments/${payment.paymentKey}/cancel`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancelReason: '고객 예약 취소' }),
+      },
+    );
+    const data: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(data?.message || '환불 처리에 실패했습니다.');
+    }
   }
 
   // ---- 예약자(부모) 연락처 — 배정된 근무자 본인만 ----

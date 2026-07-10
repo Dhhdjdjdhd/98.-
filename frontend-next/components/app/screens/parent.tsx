@@ -306,6 +306,7 @@ export function ParentBookings() {
     try {
       await api.cancelBooking(id);
       setBookings((prev) => (prev ?? []).map((b) => (b.id === id ? { ...b, status: 'CANCELED' } : b)));
+      alert('예약이 취소되고 결제 금액이 환불되었습니다.');
     } catch (e: any) { alert('취소 실패: ' + e.message); }
   };
 

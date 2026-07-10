@@ -88,6 +88,7 @@ export interface Payment {
   feeAmount: number; // 플랫폼 수수료
   workerPayout: number; // 근무자 정산액 (base - feeAmount)
   status: PaymentStatus;
+  paymentKey?: string; // 토스 결제키 (실결제 승인 시 저장, 환불에 사용)
   createdAt: string;
 }
 
