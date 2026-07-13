@@ -10,11 +10,13 @@ const GRADES = [
 
 const SAFETY: [string, string, string][] = [
   ['🪪', '실명 인증', '본인·신분증 인증 완료자만 활동'],
+  ['📋', '서류 검증', '아동학대·범죄경력 조회 동의서 등 각종 서류 검증'],
   ['📍', 'GPS 출퇴근', '실시간 위치·근무 시각 자동 기록'],
   ['🚨', '응급신고 버튼', '긴급 상황 시 원터치 신고'],
   ['🛡️', '보험 가입', '돌봄 중 사고 대비 보장'],
   ['📹', 'CCTV 동의', '필요 시 녹화 동의 기능'],
   ['📞', '긴급 연락처', '보호자 긴급 연락망 등록'],
+  ['⭐', '후기·평점 검증', '실제 이용 부모의 후기·평점으로 검증'],
 ];
 
 const PHASES = [
@@ -189,7 +191,7 @@ export function Landing() {
         <div className="mc-section">
           <div className="mc-sec-head">
             <span className="mc-sec-tag">Safety First</span>
-            <h2>부모가 안심할 수 있는<br />6중 안전 장치</h2>
+            <h2>부모가 안심할 수 있는<br />8중 안전 장치</h2>
           </div>
           <div className="mc-safety">
             {SAFETY.map(([ic, t, d]) => (
