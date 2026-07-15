@@ -263,8 +263,6 @@ const WORKER_DOCS: [string, string][] = [
   ['license', '면허/자격증'],
   ['career', '경력증명서'],
   ['idCard', '신분증'],
-  ['criminalCheck', '범죄경력 조회'],
-  ['childAbuseCheck', '아동학대 조회'],
   ['healthCert', '보건증'],
 ];
 

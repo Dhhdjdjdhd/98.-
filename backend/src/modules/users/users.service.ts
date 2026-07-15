@@ -118,8 +118,6 @@ export class UsersService {
         license: false,
         career: false,
         idCard: false,
-        criminalCheck: false,
-        childAbuseCheck: false,
         healthCert: false,
       },
       status: WorkerStatus.PENDING,

@@ -12,8 +12,6 @@ const DOC_CHIPS: [string, string][] = [
   ['license', '면허/자격증'],
   ['career', '경력증명'],
   ['idCard', '신분증'],
-  ['criminalCheck', '범죄경력'],
-  ['childAbuseCheck', '아동학대'],
   ['healthCert', '보건증'],
 ];
 

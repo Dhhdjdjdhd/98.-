@@ -64,8 +64,6 @@ export async function seedDatabase(
     license: true,
     career: true,
     idCard: true,
-    criminalCheck: true,
-    childAbuseCheck: true,
     healthCert: true,
   };
 

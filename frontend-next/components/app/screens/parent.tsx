@@ -788,7 +788,7 @@ export function Matched() {
           <h4 className="text-xl font-extrabold text-pine">{name} {role}</h4>
           <div className="my-1.5 text-[13px] text-muted">{draft.grade}등급 · {career}</div>
           <div className="mb-4 flex flex-wrap justify-center gap-1.5">
-            {['면허 인증', '범죄경력 조회', '아동학대 조회', '보건증'].map((t) => <span key={t} className="rounded-full bg-[#E9F0EC] px-2.5 py-1 text-[11.5px] font-semibold text-pine">✓ {t}</span>)}
+            {['면허 인증', '경력 확인', '보건증', '본인 인증'].map((t) => <span key={t} className="rounded-full bg-[#E9F0EC] px-2.5 py-1 text-[11.5px] font-semibold text-pine">✓ {t}</span>)}
           </div>
           <div className="flex justify-center gap-7 border-t border-line pt-4">
             <div><b className="block font-serif text-xl text-pine">{rating}</b><span className="text-[11.5px] text-muted">평점</span></div>
@@ -853,7 +853,7 @@ export function WorkerDetail() {
     );
   }
   const docs: any = info.docs || {};
-  const docLabels: [string, string][] = [['license', '면허'], ['criminalCheck', '범죄경력'], ['childAbuseCheck', '아동학대'], ['healthCert', '보건증']];
+  const docLabels: [string, string][] = [['license', '면허'], ['healthCert', '보건증']];
   return (
     <Body>
       <TopBar back={draft.detailBack || 'matched'} title="상세 이력" />

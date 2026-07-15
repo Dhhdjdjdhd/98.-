@@ -6,8 +6,6 @@ export class ReviewDocsDto {
   @IsBoolean() @IsOptional() license?: boolean;
   @IsBoolean() @IsOptional() career?: boolean;
   @IsBoolean() @IsOptional() idCard?: boolean;
-  @IsBoolean() @IsOptional() criminalCheck?: boolean;
-  @IsBoolean() @IsOptional() childAbuseCheck?: boolean;
   @IsBoolean() @IsOptional() healthCert?: boolean;
 
   @IsEnum(Grade) @IsOptional() grade?: Grade;

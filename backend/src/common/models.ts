@@ -53,8 +53,6 @@ export interface WorkerDocs {
   license: boolean; // 면허증/자격증
   career: boolean; // 경력증명서
   idCard: boolean; // 신분증
-  criminalCheck: boolean; // 범죄경력 조회 동의
-  childAbuseCheck: boolean; // 아동학대 조회 동의
   healthCert: boolean; // 보건증
 }
 
