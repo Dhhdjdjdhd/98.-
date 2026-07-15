@@ -148,7 +148,7 @@ export function SignupParent() {
   const [signature, setSignature] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
-  const inputCls = 'w-full rounded-xl border-[1.5px] border-line bg-cream px-3.5 py-2.5 text-[14px] outline-none focus:border-terra';
+  const inputCls = 'w-full min-w-0 box-border rounded-xl border-[1.5px] border-line bg-cream px-3.5 py-2.5 text-[14px] outline-none focus:border-terra';
 
   const addDelivery = () => setDeliveries([...deliveries, { date: '', gender: '딸' }]);
   const setDelivery = (i: number, patch: Partial<{ date: string; gender: string }>) =>
@@ -194,7 +194,7 @@ export function SignupParent() {
 
         <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-muted">기본 정보</div>
         <Field label="이름"><Input value={f.name} onChange={set('name')} placeholder="예) 김미영" /></Field>
-        <Field label="생년월일"><Input type="date" value={f.birthDate} onChange={set('birthDate')} /></Field>
+        <Field label="생년월일"><Input type="date" value={f.birthDate} onChange={set('birthDate')} className="min-w-0 box-border appearance-none" /></Field>
         <Field label="휴대폰 번호"><Input value={f.phone} onChange={set('phone')} placeholder="010-0000-0000" /></Field>
         <Field label="비밀번호 (4자 이상)"><Input type="password" value={f.password} onChange={set('password')} /></Field>
         <Field label="주소"><Input value={f.address} onChange={set('address')} placeholder="서울시 강남구 ..." /></Field>
