@@ -2,10 +2,19 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { StorageService } from '../../common/storage/storage.interface';
 import { COLLECTIONS, WorkerStatus, Grade } from '../../common/enums';
 import { WorkerProfile, User } from '../../common/models';
+import { readGradeHourly, writeGradeHourly } from '../../common/pricing';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly db: StorageService) {}
+
+  // ---- 등급 시급 설정 ----
+  async getGradePricing() {
+    return readGradeHourly(this.db);
+  }
+  async updateGradePricing(patch: Partial<Record<Grade, number>>) {
+    return writeGradeHourly(this.db, patch);
+  }
 
   private async getWorker(userId: string): Promise<WorkerProfile> {
     const worker = await this.db.findOne<WorkerProfile>(

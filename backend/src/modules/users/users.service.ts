@@ -75,6 +75,16 @@ export class UsersService {
       userId: user.id,
       address: dto.address,
       paymentMethod: '미등록',
+      birthDate: dto.birthDate,
+      job: dto.job,
+      allergy: dto.allergy,
+      pastHistory: dto.pastHistory,
+      infectiousDisease: dto.infectiousDisease,
+      familyHistory: dto.familyHistory,
+      deliveries: dto.deliveries ?? [],
+      specialNotes: dto.specialNotes,
+      healthConsentAt: now, // 서명 제출 = 고지 의무 동의
+      consentSignature: dto.consentSignature,
       createdAt: now,
     };
     await this.db.insert(COLLECTIONS.PARENTS, profile);

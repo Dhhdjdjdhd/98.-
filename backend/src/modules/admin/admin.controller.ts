@@ -18,6 +18,17 @@ export class AdminController {
     return this.admin.summary();
   }
 
+  // 등급 시급 조회 / 수정
+  @Get('grade-pricing')
+  gradePricing() {
+    return this.admin.getGradePricing();
+  }
+
+  @Patch('grade-pricing')
+  updateGradePricing(@Body() body: Record<string, number>) {
+    return this.admin.updateGradePricing(body);
+  }
+
   // 서류 검수 결과 반영
   @Patch('workers/:userId/docs')
   reviewDocs(@Param('userId') userId: string, @Body() dto: ReviewDocsDto) {

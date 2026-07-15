@@ -14,7 +14,7 @@ import {
 import { Booking, Payment, CareLogEntry, Observation } from '../../common/models';
 import { genId } from '../../common/util/id.util';
 import { nowKst } from '../../common/util/kst.util';
-import { priceBooking } from '../../common/pricing';
+import { priceBooking, readGradeHourly } from '../../common/pricing';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateCareLogDto } from './dto/create-care-log.dto';
 
@@ -65,7 +65,9 @@ export class BookingsService {
     };
     await this.db.insert(COLLECTIONS.BOOKINGS, booking);
 
-    const price = priceBooking(dto.grade, dto.hours);
+    // 관리자가 설정한 등급 시급을 반영해 결제액 계산
+    const hourly = (await readGradeHourly(this.db))[dto.grade];
+    const price = priceBooking(dto.grade, dto.hours, hourly);
     const payment: Payment = {
       id: genId('pay'),
       bookingId: booking.id,

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { won, pad2 } from '@/lib/utils';
 import { resizeImage } from '@/lib/image';
-import { CHILD_AGES, BOOKING_STATUS } from '@/lib/constants';
+import { CHILD_AGES, BOOKING_STATUS, GRADES, GRADE_ORDER, applyGradePrices } from '@/lib/constants';
 import { useApp } from '../context';
 import { Body } from '../ui';
 
@@ -19,13 +19,15 @@ const DOC_CHIPS: [string, string][] = [
 
 export function AdminHome() {
   const { user, live, logout } = useApp();
-  const [tab, setTab] = useState<'approve' | 'settle' | 'obs' | 'bookings'>('approve');
+  const [tab, setTab] = useState<'approve' | 'settle' | 'obs' | 'bookings' | 'pricing'>('approve');
   const [summary, setSummary] = useState<any>({ pending: '—', approved: '—', totalBookings: '—' });
   const [pending, setPending] = useState<any[] | null>(null);
   const [workerFilter, setWorkerFilter] = useState<'PENDING' | 'APPROVED'>('PENDING');
   const [settlements, setSettlements] = useState<any[] | null>(null);
   const [observations, setObservations] = useState<any[] | null>(null);
   const [allBookings, setAllBookings] = useState<any[] | null>(null);
+  const [pricing, setPricing] = useState<Record<string, string> | null>(null);
+  const [pricingBusy, setPricingBusy] = useState(false);
   const [view, setView] = useState<string | null>(null); // 확대 이미지 dataUrl
 
   async function loadSummary() { try { setSummary(await api.summary()); } catch {} }
@@ -48,10 +50,29 @@ export function AdminHome() {
   async function loadAllBookings() {
     try { setAllBookings(await api.adminBookings()); } catch { setAllBookings([]); }
   }
+  async function loadPricing() {
+    try {
+      const m: any = await api.adminGradePricing();
+      setPricing({ A: String(m.A), B: String(m.B), C: String(m.C), D: String(m.D) });
+    } catch { setPricing({ A: '', B: '', C: '', D: '' }); }
+  }
+  async function savePricing() {
+    if (!pricing) return;
+    setPricingBusy(true);
+    try {
+      const body = GRADE_ORDER.reduce((o, g) => { o[g] = Number(pricing[g]); return o; }, {} as Record<string, number>);
+      const m: any = await api.updateGradePricing(body);
+      applyGradePrices(m);
+      setPricing({ A: String(m.A), B: String(m.B), C: String(m.C), D: String(m.D) });
+      alert('등급 시급이 저장되었습니다.');
+    } catch (e: any) { alert('저장 실패: ' + e.message); }
+    finally { setPricingBusy(false); }
+  }
   useEffect(() => {
     if (tab === 'settle' && settlements === null && live && user) loadSettlements();
     if (tab === 'obs' && observations === null && live && user) loadObservations();
     if (tab === 'bookings' && allBookings === null && live && user) loadAllBookings();
+    if (tab === 'pricing' && pricing === null && live && user) loadPricing();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [tab]);
   const bkCounts: Record<string, number> = allBookings
@@ -141,7 +162,7 @@ export function AdminHome() {
 
       {/* 탭 */}
       <div className="mb-4 flex gap-1 rounded-xl bg-ivory-2 p-1">
-        {([['approve', '자격 검수'], ['settle', '정산'], ['obs', '비고'], ['bookings', '예약']] as const).map(([k, l]) => (
+        {([['approve', '자격 검수'], ['settle', '정산'], ['obs', '비고'], ['bookings', '예약'], ['pricing', '요금']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={'flex-1 rounded-lg py-2 text-[13px] font-bold transition ' + (tab === k ? 'bg-white text-pine shadow-sm' : 'text-muted')}>{l}</button>
         ))}
       </div>
@@ -235,6 +256,34 @@ export function AdminHome() {
             </>
           )
           : <div className="py-6 text-center text-[14px] text-muted">예약이 없습니다</div>
+      )}
+
+      {tab === 'pricing' && (
+        pricing === null ? <div className="py-5 text-center text-[14px] text-muted">불러오는 중…</div>
+          : (
+            <>
+              <div className="mb-1 text-[12px] font-bold uppercase tracking-wide text-muted">등급별 시간당 요금</div>
+              <p className="mb-3 text-[12.5px] leading-relaxed text-muted">변경한 요금은 <b className="text-ink-2">이후 신규 예약부터</b> 적용됩니다. 기존 예약·정산 금액은 그대로 유지됩니다.</p>
+              {GRADE_ORDER.map((g) => (
+                <div key={g} className="mb-2.5 flex items-center gap-3 rounded-2xl border border-line bg-cream p-3.5">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl font-serif text-lg font-bold text-white" style={{ background: GRADES[g].badge }}>{g}</span>
+                  <div className="min-w-0 flex-1">
+                    <b className="block text-[14px]">{GRADES[g].name}</b>
+                    <span className="text-[12px] text-muted">{GRADES[g].desc}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number" min={0} step={1000} value={pricing[g]}
+                      onChange={(e) => setPricing({ ...pricing, [g]: e.target.value })}
+                      className="w-28 rounded-xl border-[1.5px] border-line bg-white px-3 py-2.5 text-right text-[14px] outline-none focus:border-terra"
+                    />
+                    <span className="text-[13px] text-muted">원/시</span>
+                  </div>
+                </div>
+              ))}
+              <button onClick={savePricing} disabled={pricingBusy} className="mt-2 w-full rounded-xl bg-pine py-3 text-[14px] font-bold text-white disabled:opacity-50">요금 저장</button>
+            </>
+          )
       )}
 
       {view && (

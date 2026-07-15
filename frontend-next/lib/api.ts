@@ -76,6 +76,11 @@ async function patch<T = any>(path: string, body?: any): Promise<T> {
 }
 
 export const api = {
+  // ---- 등급 시급 ----
+  gradePricing: () => get('/grade-pricing'),
+  adminGradePricing: () => get('/admin/grade-pricing'),
+  updateGradePricing: (body: Record<string, number>) => patch('/admin/grade-pricing', body),
+
   // ---- 세션 ----
   getUser(): AuthUserInfo | null {
     if (typeof window === 'undefined') return null;

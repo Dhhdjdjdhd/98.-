@@ -21,6 +21,12 @@ export interface User {
   createdAt: string; // KST 'YYYY-MM-DD HH:mm:ss'
 }
 
+// 분만 이력 한 건
+export interface DeliveryRecord {
+  date: string; // 출산일 (YYYY-MM-DD)
+  gender: string; // '딸' | '아들'
+}
+
 // 부모 프로필
 export interface ParentProfile {
   id: string;
@@ -28,6 +34,17 @@ export interface ParentProfile {
   address: string;
   paymentMethod: string; // 프로토타입: 표시용 문자열 (예: '신한카드 ****1234')
   favorites?: string[]; // 즐겨찾기한 근무자 User.id 목록
+  // 산모 정보 (회원가입 시 수집)
+  birthDate?: string; // 생년월일
+  job?: string; // 직업
+  allergy?: string; // 알러지
+  pastHistory?: string; // 과거력 (고혈압·당뇨·갑상선질환 등)
+  infectiousDisease?: string; // 전염성 질환 (B형간염 보균 등)
+  familyHistory?: string; // 가족력
+  deliveries?: DeliveryRecord[]; // 분만 이력
+  specialNotes?: string; // 특이사항·주의할 점·바라는 점
+  healthConsentAt?: string; // 고지 의무 동의 일시 (KST)
+  consentSignature?: string; // 동의 서명 이미지 (dataURL)
   createdAt: string;
 }
 

@@ -8,6 +8,13 @@ export const GRADES: Record<GradeCode, { code: GradeCode; name: string; price: n
 };
 export const GRADE_ORDER: GradeCode[] = ['A', 'B', 'C', 'D'];
 
+// 서버에서 받은 등급 시급을 GRADES에 반영 (관리자 설정값 적용)
+export function applyGradePrices(map: Partial<Record<GradeCode, number>>) {
+  (Object.keys(map) as GradeCode[]).forEach((g) => {
+    if (GRADES[g] && typeof map[g] === 'number') GRADES[g].price = map[g] as number;
+  });
+}
+
 export const CHILD_AGES: Record<string, string> = {
   NEWBORN: '신생아',
   INFANT: '영아',

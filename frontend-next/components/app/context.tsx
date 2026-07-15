@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { api, AuthUserInfo } from '@/lib/api';
-import { GradeCode } from '@/lib/constants';
+import { GradeCode, applyGradePrices } from '@/lib/constants';
 
 export type ScreenName =
   | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
@@ -67,6 +67,14 @@ export function AppProvider({
   const [screen, setScreen] = useState<ScreenName>(initialUser ? roleHome(initialUser.role) : 'login');
   const [user, setUser] = useState<AuthUserInfo | null>(initialUser);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [, setPriceTick] = useState(0); // 서버 시급 반영 후 리렌더 트리거
+
+  // 앱 로드 시 관리자가 설정한 등급 시급을 서버에서 받아 GRADES에 반영
+  useEffect(() => {
+    api.gradePricing()
+      .then((m: any) => { applyGradePrices(m); setPriceTick((x) => x + 1); })
+      .catch(() => {});
+  }, []);
 
   const go = useCallback((s: ScreenName) => setScreen(s), []);
   const patch = useCallback((p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p })), []);

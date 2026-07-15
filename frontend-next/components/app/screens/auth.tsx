@@ -8,6 +8,7 @@ import { Body, Foot, NextButton, TopBar } from '../ui';
 import { Input, Field } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Villy } from '@/components/brand/Villy';
+import { SignaturePad } from '@/components/ui/SignaturePad';
 
 /* ===== 로그인 ===== */
 const DEMO_ROLES: { role: 'parent' | 'worker' | 'admin'; icon: string; label: string; sub: string }[] = [
@@ -133,32 +134,126 @@ function ChoiceBtn({ icon, title, sub, onClick }: { icon: string; title: string;
   );
 }
 
-/* ===== 부모 가입 ===== */
+/* ===== 부모(산모) 가입 ===== */
 export function SignupParent() {
   const { onAuthed, live } = useApp();
-  const [f, setF] = useState({ name: '', phone: '', password: '', address: '' });
+  const [f, setF] = useState({
+    name: '', phone: '', password: '', address: '',
+    birthDate: '', job: '', allergy: '', pastHistory: '',
+    infectiousDisease: '', familyHistory: '', specialNotes: '',
+  });
+  const [deliveries, setDeliveries] = useState<{ date: string; gender: string }[]>([]);
+  const [showConsent, setShowConsent] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [signature, setSignature] = useState('');
+  const [busy, setBusy] = useState(false);
   const set = (k: string) => (e: any) => setF({ ...f, [k]: e.target.value });
+  const inputCls = 'w-full rounded-xl border-[1.5px] border-line bg-cream px-3.5 py-2.5 text-[14px] outline-none focus:border-terra';
 
-  async function submit() {
+  const addDelivery = () => setDeliveries([...deliveries, { date: '', gender: '딸' }]);
+  const setDelivery = (i: number, patch: Partial<{ date: string; gender: string }>) =>
+    setDeliveries(deliveries.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  const removeDelivery = (i: number) => setDeliveries(deliveries.filter((_, idx) => idx !== i));
+
+  // 1단계: 정보 검증 후 고지 의무 동의서 모달 열기
+  function toConsent() {
     if (!live) return alert('데모 모드에서는 회원가입을 사용할 수 없습니다.');
-    if (!f.name || !f.phone || !f.password || !f.address) return alert('모든 항목을 입력하세요.');
+    const required: [string, string][] = [
+      ['name', '이름'], ['phone', '휴대폰 번호'], ['password', '비밀번호'], ['address', '주소'],
+      ['birthDate', '생년월일'], ['job', '직업'], ['allergy', '알러지'], ['pastHistory', '과거력'],
+      ['infectiousDisease', '전염성 질환'], ['familyHistory', '가족력'], ['specialNotes', '특이사항'],
+    ];
+    for (const [k, label] of required) {
+      if (!(f as any)[k]?.trim()) return alert(`${label}을(를) 입력해 주세요.\n(건강 항목은 없으면 "없음"으로 입력)`);
+    }
+    if (f.password.length < 4) return alert('비밀번호는 4자 이상이어야 합니다.');
+    if (deliveries.some((d) => !d.date)) return alert('분만 이력의 출산일을 입력하거나 항목을 삭제해 주세요.');
+    setSignature('');
+    setAgreed(false);
+    setShowConsent(true);
+  }
+
+  // 2단계: 동의 + 서명 완료 후 가입
+  async function finalSubmit() {
+    if (!agreed) return alert('고지 의무 내용에 동의해 주세요.');
+    if (!signature) return alert('서명을 입력해 주세요.');
+    setBusy(true);
     try {
-      onAuthed(await api.signupParent(f));
+      onAuthed(await api.signupParent({ ...f, deliveries, consentSignature: signature }));
     } catch (e: any) {
       alert('가입 실패: ' + e.message);
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <>
       <Body>
-        <TopBar back="signup-choice" title="부모 회원가입" />
-        <Field label="이름"><Input value={f.name} onChange={set('name')} placeholder="예) 지민맘" /></Field>
+        <TopBar back="signup-choice" title="부모(산모) 회원가입" />
+
+        <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-muted">기본 정보</div>
+        <Field label="이름"><Input value={f.name} onChange={set('name')} placeholder="예) 김미영" /></Field>
+        <Field label="생년월일"><Input type="date" value={f.birthDate} onChange={set('birthDate')} /></Field>
         <Field label="휴대폰 번호"><Input value={f.phone} onChange={set('phone')} placeholder="010-0000-0000" /></Field>
         <Field label="비밀번호 (4자 이상)"><Input type="password" value={f.password} onChange={set('password')} /></Field>
         <Field label="주소"><Input value={f.address} onChange={set('address')} placeholder="서울시 강남구 ..." /></Field>
+        <Field label="직업"><Input value={f.job} onChange={set('job')} placeholder="예) 회사원" /></Field>
+
+        <div className="mb-2 mt-3 text-[12px] font-bold uppercase tracking-wide text-muted">건강 정보 <span className="font-normal normal-case">(없으면 "없음" 입력)</span></div>
+        <Field label="알러지"><Input value={f.allergy} onChange={set('allergy')} placeholder="예) 견과류, 없음" /></Field>
+        <Field label="과거력"><Input value={f.pastHistory} onChange={set('pastHistory')} placeholder="예) 고혈압, 당뇨, 갑상선질환 등" /></Field>
+        <Field label="전염성 질환"><Input value={f.infectiousDisease} onChange={set('infectiousDisease')} placeholder="예) B형간염 보균, 없음" /></Field>
+        <Field label="가족력"><Input value={f.familyHistory} onChange={set('familyHistory')} placeholder="예) 부: 고혈압, 모: 유방암 등" /></Field>
+
+        <div className="mb-1.5 mt-3 text-[12px] font-bold uppercase tracking-wide text-muted">분만 이력</div>
+        {deliveries.map((d, i) => (
+          <div key={i} className="mb-2 flex items-center gap-2">
+            <input type="date" value={d.date} onChange={(e) => setDelivery(i, { date: e.target.value })} className={inputCls} />
+            <select value={d.gender} onChange={(e) => setDelivery(i, { gender: e.target.value })} className={inputCls + ' w-24 shrink-0'}>
+              <option>딸</option><option>아들</option>
+            </select>
+            <button type="button" onClick={() => removeDelivery(i)} className="shrink-0 rounded-lg border border-line px-2.5 py-2 text-[13px] text-muted">×</button>
+          </div>
+        ))}
+        <button type="button" onClick={addDelivery} className="mb-3 w-full rounded-xl border-[1.5px] border-dashed border-line py-2.5 text-[13px] font-semibold text-pine">+ 분만 이력 추가 (초산이면 비워두세요)</button>
+
+        <div className="mb-1.5 mt-1 text-[12px] font-bold uppercase tracking-wide text-muted">특이사항 · 주의할 점 · 바라는 점</div>
+        <textarea value={f.specialNotes} onChange={set('specialNotes')} rows={3} placeholder="돌봄 시 주의할 점이나 바라는 점을 적어주세요. (없으면 '없음')" className={inputCls + ' resize-none'} />
       </Body>
-      <Foot><NextButton onClick={submit}>가입하고 시작하기</NextButton></Foot>
+      <Foot><NextButton onClick={toConsent}>다음 · 고지 의무 동의</NextButton></Foot>
+
+      {/* ===== 고지 의무 동의서 모달 ===== */}
+      {showConsent && (
+        <div className="fixed inset-0 z-[9999] grid place-items-center bg-black/50 p-4">
+          <div className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white">
+            <div className="border-b border-line px-5 py-4">
+              <h3 className="text-[16px] font-extrabold text-pine">이용자의 고지 의무 동의서</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 text-[13px] leading-relaxed text-ink-2">
+              <p className="mb-3">이용자는 안전한 돌봄 서비스 제공을 위해, <b className="text-ink">산모 본인·아기 또는 함께 거주하는 가족</b>의 전염성 질환, 감염병, 기타 돌봄에 영향을 줄 수 있는 건강상 특이사항이 있는 경우 이를 <b className="text-ink">서비스 이용 전 전문가에게 반드시 알려야 합니다.</b></p>
+              <p className="mb-3">고지되지 않은 사항으로 인해 발생하는 안전상의 문제나 서비스 제공의 어려움에 대해서는 이용자가 책임을 질 수 있으며, 전문가는 본인과 다른 이용자의 안전을 위해 서비스 제공을 제한하거나 중단할 수 있습니다.</p>
+
+              <label className="mt-1 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line bg-cream px-3.5 py-3">
+                <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-terra" />
+                <span className="text-[13px] font-semibold text-ink">위 고지 의무 내용을 모두 확인했으며 이에 동의합니다.</span>
+              </label>
+
+              <div className="mt-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-muted">서명 (본인)</span>
+                  <span className="text-[12px] text-ink">{f.name || '이름'}</span>
+                </div>
+                <SignaturePad onChange={setSignature} />
+              </div>
+            </div>
+            <div className="flex gap-2 border-t border-line px-5 py-3.5">
+              <button type="button" onClick={() => setShowConsent(false)} className="flex-1 rounded-xl border-[1.5px] border-line bg-cream py-3 text-[14px] font-bold text-muted">취소</button>
+              <button type="button" onClick={finalSubmit} disabled={busy || !agreed || !signature} className="flex-[1.6] rounded-xl bg-pine py-3 text-[14px] font-bold text-white disabled:opacity-50">동의하고 가입 완료</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

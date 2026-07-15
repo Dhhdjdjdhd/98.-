@@ -72,6 +72,7 @@ export const COLLECTIONS = {
   FILES: 'files',
   CARE_LOGS: 'careLogs',
   OBSERVATIONS: 'observations',
+  SETTINGS: 'settings', // 운영 설정(등급 시급 등) 키-문서 저장
 } as const;
 
 // 근무자 제출 서류 종류 (파일 업로드 kind)
