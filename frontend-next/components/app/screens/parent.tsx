@@ -327,7 +327,7 @@ export function ParentBookings() {
     api.listBookings({ parentId: user.id }).then((b: any) => setBookings(b)).catch(() => setBookings([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, user]);
-  const doRebook = (code: GradeCode) => { patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined }); go('date'); };
+  const doRebook = (code: GradeCode) => { patch({ grade: code, dates: [], time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined }); go('date'); };
   const doCancel = async (id: string) => {
     const bk = (bookings ?? []).find((b) => b.id === id);
     const gid = bk?.groupId;
