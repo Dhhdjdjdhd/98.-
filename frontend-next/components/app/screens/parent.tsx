@@ -11,15 +11,29 @@ import { CareLogList } from '../CareLogList';
 import { Villy } from '@/components/brand/Villy';
 import { loadTossPayments, ANONYMOUS } from '@tosspayments/tosspayments-sdk';
 
+// 단건(데모 매칭용) — 첫 날짜 기준
 function payloadFromDraft(d: any) {
   return {
-    date: `2026-07-${pad2(d.date)}`,
+    date: `2026-07-${pad2(d.dates[0])}`,
     startTime: d.time,
     hours: d.hours,
     address: d.address,
     childAge: d.childAge.value,
     grade: d.grade,
-    workerId: d.selectedWorker?.userId, // 부모가 직접 선택한 전문가(없으면 자동 매칭)
+    workerId: d.selectedWorker?.userId,
+  };
+}
+
+// 여러 날짜 묶음 예약용
+function groupPayloadFromDraft(d: any) {
+  return {
+    dates: (d.dates as number[]).map((n) => `2026-07-${pad2(n)}`),
+    startTime: d.time,
+    hours: d.hours,
+    address: d.address,
+    childAge: d.childAge.value,
+    grade: d.grade,
+    workerId: d.selectedWorker?.userId, // 선택 전문가가 모든 날짜 담당(없으면 자동 매칭)
   };
 }
 
@@ -47,7 +61,7 @@ export function ParentHome() {
   }, [live, user]);
 
   function rebook(code: GradeCode) {
-    patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined });
+    patch({ grade: code, dates: [], time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined });
     go('date');
   }
   async function removeFav(id: string) {
@@ -307,10 +321,16 @@ export function ParentBookings() {
   }, [live, user]);
   const doRebook = (code: GradeCode) => { patch({ grade: code, date: undefined, time: undefined, hours: 2, address: '', childAge: undefined, bookingId: undefined, matchedWorker: undefined }); go('date'); };
   const doCancel = async (id: string) => {
-    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
+    const bk = (bookings ?? []).find((b) => b.id === id);
+    const gid = bk?.groupId;
+    const groupCount = gid ? (bookings ?? []).filter((b) => b.groupId === gid && (b.status === 'REQUESTED' || b.status === 'MATCHED')).length : 1;
+    if (!confirm(groupCount > 1
+      ? `이 예약은 ${groupCount}일 묶음 신청이에요. 묶음 전체가 취소·환불됩니다. 계속할까요?`
+      : '이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
     try {
-      await api.cancelBooking(id);
-      setBookings((prev) => (prev ?? []).map((b) => (b.id === id ? { ...b, status: 'CANCELED' } : b)));
+      if (gid) await api.cancelGroup(gid);
+      else await api.cancelBooking(id);
+      setBookings((prev) => (prev ?? []).map((b) => ((gid ? b.groupId === gid : b.id === id) ? { ...b, status: 'CANCELED' } : b)));
       alert('예약이 취소되고 결제 금액이 환불되었습니다.');
     } catch (e: any) { alert('취소 실패: ' + e.message); }
   };
@@ -403,7 +423,7 @@ export function DateSelect() {
       <Body>
         <TopBar back="grade" title="날짜 선택" />
         <Progress step={2} />
-        <Q sub="2026년 7월 · 근무 가능한 날짜만 표시됩니다">언제 도움이<br />필요하신가요?</Q>
+        <Q sub="여러 날짜를 눌러 한 번에 신청할 수 있어요">언제 도움이<br />필요하신가요?</Q>
         <div className="rounded-2xl border border-line bg-cream p-4">
           <div className="mb-3.5 flex items-center justify-between text-[15px] font-bold text-pine"><span>‹</span><span>2026년 7월</span><span>›</span></div>
           <div className="grid grid-cols-7 gap-1">
@@ -412,9 +432,10 @@ export function DateSelect() {
             {Array.from({ length: 31 }).map((_, i) => {
               const d = i + 1;
               const past = d < 7;
-              const sel = draft.date === d;
+              const sel = draft.dates.includes(d);
+              const toggle = () => patch({ dates: sel ? draft.dates.filter((x) => x !== d) : [...draft.dates, d].sort((a, b) => a - b) });
               return (
-                <div key={d} onClick={() => !past && patch({ date: d })}
+                <div key={d} onClick={() => !past && toggle()}
                   className={'grid aspect-square place-items-center rounded-[10px] text-[13.5px] ' + (past ? 'text-[#CFC6B6]' : sel ? 'bg-terra font-bold text-white' : 'cursor-pointer text-ink hover:bg-ivory-2')}>
                   {d}
                 </div>
@@ -422,8 +443,13 @@ export function DateSelect() {
             })}
           </div>
         </div>
+        {draft.dates.length > 0 && (
+          <div className="mt-3 rounded-xl bg-[#FCEFE9] px-3.5 py-2.5 text-[13px] font-semibold text-terra-2">
+            선택한 날짜 ({draft.dates.length}일) · 7월 {draft.dates.join(', ')}일
+          </div>
+        )}
       </Body>
-      <Foot><NextButton disabled={!draft.date} onClick={() => go('time')}>다음</NextButton></Foot>
+      <Foot><NextButton disabled={!draft.dates.length} onClick={() => go('time')}>다음</NextButton></Foot>
     </>
   );
 }
@@ -445,7 +471,7 @@ export function TimeSelect() {
       <Body>
         <TopBar back="date" title="시간 선택" />
         <Progress step={3} />
-        <Q sub={`7월 ${draft.date}일 · 시작 시간을 선택하세요`}>몇 시부터<br />몇 시간 필요하세요?</Q>
+        <Q sub={`7월 ${draft.dates.join(', ')}일 (${draft.dates.length}일) · 시작 시간을 선택하세요`}>몇 시부터<br />몇 시간 필요하세요?</Q>
         <Label>시작 시간</Label>
         <div className="grid grid-cols-2 gap-2">
           <select className={sel} value={curH ?? ''} onChange={(e) => setTime(e.target.value, curM || '00')}>
@@ -524,9 +550,9 @@ export function SelectWorker() {
   const g = GRADES[draft.grade as GradeCode];
 
   useEffect(() => {
-    const date = `2026-07-${pad2(draft.date as number)}`;
+    const dates = draft.dates.map((n) => `2026-07-${pad2(n)}`);
     api
-      .availableWorkers(draft.grade as string, date, draft.time as string, draft.hours)
+      .availableWorkersMulti(draft.grade as string, dates, draft.time as string, draft.hours)
       .then((rows: any) => setList(Array.isArray(rows) ? rows : []))
       .catch(() => setList([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -553,7 +579,7 @@ export function SelectWorker() {
       <Body>
         <TopBar back="address" title="전문가 선택" />
         <Progress step={5} />
-        <Q sub={`${g.code}등급 · 7월 ${draft.date}일 ${draft.time}~ · ${draft.hours}시간`}>
+        <Q sub={`${g.code}등급 · 7월 ${draft.dates.join(', ')}일 (${draft.dates.length}일) · ${draft.time}~ ${draft.hours}시간`}>
           함께할 전문가를<br />선택해 주세요
         </Q>
 
@@ -602,31 +628,25 @@ export function Pay() {
   const { draft, go } = useApp();
   const [agreed, setAgreed] = useState(false);
   const g = GRADES[draft.grade as GradeCode];
-  const base = g.price * draft.hours;
-  const fee = Math.round(base * 0.15);
+  const base = g.price * draft.hours; // 하루치
+  const total = base * draft.dates.length; // 전체 결제액
+  const fee = Math.round(total * 0.15);
   const Row = ({ l, v }: { l: string; v: string }) => (
     <div className="flex justify-between border-b border-dashed border-line py-2.5 text-[14px] text-ink-2 last:border-0"><span>{l}</span><b className="font-semibold text-ink">{v}</b></div>
   );
   async function payWithToss() {
     if (!api.isLoggedIn()) { go('matching'); return; } // 데모(비로그인)는 기존 프로토타입 흐름
     try {
-      const created: any = await api.createBooking(payloadFromDraft(draft));
-      const bid = created.booking.id;
-      // 결제 전 매칭 가능 여부 확인 — 없으면 결제 안 하고 예약 롤백
-      const avail: any = await api.checkAvailability(bid);
-      if (!avail.available) {
-        try { await api.cancelBooking(bid); } catch {}
-        alert('지금 조건(등급·시간)에 맞는 전문가가 없어요.\n등급이나 시간을 바꿔서 다시 시도해 주세요.');
-        return;
-      }
+      const created: any = await api.createBookingGroup(groupPayloadFromDraft(draft));
+      const gid = created.groupId;
       const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY as string;
       const toss = await loadTossPayments(clientKey);
       const payment = toss.payment({ customerKey: ANONYMOUS });
       await payment.requestPayment({
         method: 'CARD',
-        amount: { currency: 'KRW', value: base },
-        orderId: bid,
-        orderName: `${g.name} 돌봄 ${draft.hours}시간`,
+        amount: { currency: 'KRW', value: created.total },
+        orderId: gid,
+        orderName: `${g.name} 돌봄 ${draft.hours}시간 · ${created.count}일`,
         successUrl: `${window.location.origin}?toss=success`,
         failUrl: `${window.location.origin}?toss=fail`,
         card: { flowMode: 'DEFAULT', useEscrow: false, useCardPoint: false },
@@ -647,13 +667,15 @@ export function Pay() {
           {draft.selectedWorker && (
             <Row l="선택 전문가" v={`${draft.selectedWorker.name}${draft.selectedWorker.licenseType ? ` · ${draft.selectedWorker.licenseType}` : ''}`} />
           )}
-          <Row l="일정" v={`7월 ${draft.date}일 ${draft.time}~ · ${draft.hours}시간`} />
+          <Row l="일정" v={`7월 ${draft.dates.join(', ')}일 (${draft.dates.length}일)`} />
+          <Row l="시간" v={`${draft.time}~ · 하루 ${draft.hours}시간`} />
           <Row l="아이" v={draft.childAge!.label} />
           <Row l="장소" v={draft.address} />
         </div>
         <div className="rounded-[18px] border border-line bg-cream p-[22px]">
-          <div className="flex justify-between py-2.5 text-[14px] text-ink-2"><span>시급 {won(g.price)} × {draft.hours}시간</span><b className="text-ink">{won(base)}</b></div>
-          <div className="mt-3.5 flex items-baseline justify-between border-t-2 border-ink pt-3.5"><span className="text-[14px] font-bold">총 결제금액</span><b className="font-serif text-[26px] text-terra-2">{won(base)}</b></div>
+          <div className="flex justify-between py-2.5 text-[14px] text-ink-2"><span>시급 {won(g.price)} × {draft.hours}시간 (하루)</span><b className="text-ink">{won(base)}</b></div>
+          <div className="flex justify-between py-1 text-[14px] text-ink-2"><span>× {draft.dates.length}일</span><b className="text-ink">{won(total)}</b></div>
+          <div className="mt-3.5 flex items-baseline justify-between border-t-2 border-ink pt-3.5"><span className="text-[14px] font-bold">총 결제금액</span><b className="font-serif text-[26px] text-terra-2">{won(total)}</b></div>
         </div>
         <div className="mx-0.5 mb-4 mt-1.5 text-[11.5px] text-muted">※ 플랫폼 수수료 15%({won(fee)})는 근무자 정산에서 차감됩니다.</div>
         {/* 결제 수단은 다음 단계(토스 결제창)에서 선택 */}
@@ -664,7 +686,7 @@ export function Pay() {
           <span><b className="text-ink">[필수]</b> 보험·보상은 케어빌리지를 통한 예약에만 적용되며, 앱 외부 사적 거래로 발생한 문제에 플랫폼이 책임지지 않음을 확인했습니다.</span>
         </label>
       </Body>
-      <Foot><NextButton disabled={!agreed} onClick={payWithToss}>{won(base)} 결제하기</NextButton></Foot>
+      <Foot><NextButton disabled={!agreed} onClick={payWithToss}>{won(total)} 결제하기</NextButton></Foot>
     </>
   );
 }
@@ -762,11 +784,15 @@ export function Matched() {
     finally { setBusy(false); }
   };
   const doCancel = async () => {
-    if (!draft.bookingId) return alert('데모 모드에서는 취소할 수 없습니다.');
-    if (!confirm('이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
+    if (!draft.bookingId && !draft.groupId) return alert('데모 모드에서는 취소할 수 없습니다.');
+    const multi = draft.dates.length > 1;
+    if (!confirm(multi
+      ? `이 예약은 ${draft.dates.length}일 묶음 신청이에요. 묶음 전체가 취소·환불됩니다. 계속할까요?`
+      : '이 예약을 취소하시겠어요? 결제하신 금액은 환불 처리됩니다.')) return;
     setBusy(true);
     try {
-      await api.cancelBooking(draft.bookingId);
+      if (draft.groupId) await api.cancelGroup(draft.groupId);
+      else await api.cancelBooking(draft.bookingId!);
       alert('예약이 취소되고 결제 금액이 환불되었습니다.');
       resetDraft();
       go('parent-home');

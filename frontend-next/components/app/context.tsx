@@ -13,13 +13,14 @@ export type ScreenName =
 
 export interface Draft {
   grade?: GradeCode;
-  date?: number;
+  dates: number[]; // 선택한 날짜(7월 일자) 목록 — 여러 날짜 묶음 예약
   time?: string;
   hours: number;
   address: string;
   childAge?: { value: string; label: string };
   selectedWorker?: any;     // 부모가 직접 선택한 전문가 (userId 포함)
   bookingId?: string;
+  groupId?: string;         // 여러 날짜 묶음 예약 ID (묶음 취소용)
   matchedWorker?: any;
   rating: number;
   reviewTags: string[];
@@ -30,7 +31,7 @@ export interface Draft {
   activeBack?: ScreenName;  // 근무 현황 화면의 뒤로가기 목적지
 }
 
-const emptyDraft: Draft = { hours: 2, address: '', rating: 0, reviewTags: [] };
+const emptyDraft: Draft = { hours: 2, address: '', rating: 0, reviewTags: [], dates: [] };
 
 interface AppState {
   screen: ScreenName;

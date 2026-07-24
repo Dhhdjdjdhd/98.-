@@ -82,6 +82,7 @@ export interface Booking {
   id: string;
   parentId: string; // User.id (role=PARENT)
   workerId?: string | null; // User.id (role=WORKER), 매칭 후 채워짐 (거절 재매칭 대기 시 null)
+  groupId?: string; // 여러 날짜를 한 번에 신청한 묶음 예약 연결 (단건도 부여)
   date: string; // 'YYYY-MM-DD'
   startTime: string; // 'HH:mm'
   hours: number;

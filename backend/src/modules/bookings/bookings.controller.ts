@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateBookingGroupDto } from './dto/create-booking-group.dto';
 import { CreateCareLogDto } from './dto/create-care-log.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -40,6 +41,43 @@ export class BookingsController {
     @Query('hours') hours: string,
   ) {
     return this.bookings.findAvailableWorkers(grade, date, startTime, Number(hours));
+  }
+
+  // 여러 날짜 공통 가능 전문가 (dates=YYYY-MM-DD,YYYY-MM-DD)
+  @Roles(Role.PARENT)
+  @Get('available-workers-multi')
+  availableWorkersMulti(
+    @Query('grade') grade: string,
+    @Query('dates') dates: string,
+    @Query('startTime') startTime: string,
+    @Query('hours') hours: string,
+  ) {
+    const list = (dates || '').split(',').filter(Boolean);
+    return this.bookings.findAvailableWorkersMulti(grade, list, startTime, Number(hours));
+  }
+
+  // 여러 날짜 묶음 예약 생성 (부모만)
+  @Roles(Role.PARENT)
+  @Post('group')
+  createGroup(@Body() dto: CreateBookingGroupDto, @CurrentUser() user: AuthUser) {
+    return this.bookings.createGroup({ ...dto, parentId: user.sub });
+  }
+
+  // 묶음 결제 승인(총액 1건) (부모만)
+  @Roles(Role.PARENT)
+  @Post('group/:groupId/confirm-payment')
+  confirmGroupPayment(
+    @Param('groupId') groupId: string,
+    @Body() body: { paymentKey: string; amount: number },
+  ) {
+    return this.bookings.confirmGroupPayment(groupId, body.paymentKey, body.amount);
+  }
+
+  // 묶음 취소·전액 환불 (부모 본인만)
+  @Roles(Role.PARENT)
+  @Post('group/:groupId/cancel')
+  cancelGroup(@Param('groupId') groupId: string, @CurrentUser() user: AuthUser) {
+    return this.bookings.cancelGroup(groupId, user.sub);
   }
 
   // 근무자 정산 요약 (':id'보다 먼저 선언해 경로 충돌 방지)

@@ -143,6 +143,14 @@ export const api = {
     const q = new URLSearchParams({ grade, date, startTime, hours: String(hours) }).toString();
     return get(`/bookings/available-workers?${q}`);
   },
+  availableWorkersMulti: (grade: string, dates: string[], startTime: string, hours: number) => {
+    const q = new URLSearchParams({ grade, dates: dates.join(','), startTime, hours: String(hours) }).toString();
+    return get(`/bookings/available-workers-multi?${q}`);
+  },
+  createBookingGroup: (payload: any) => post('/bookings/group', payload),
+  confirmGroupPayment: (groupId: string, paymentKey: string, amount: number) =>
+    post(`/bookings/group/${groupId}/confirm-payment`, { paymentKey, amount }),
+  cancelGroup: (groupId: string) => post(`/bookings/group/${groupId}/cancel`),
   accept: (id: string) => post(`/bookings/${id}/accept`),
   reject: (id: string) => post(`/bookings/${id}/reject`),
   rematch: (id: string) => post(`/bookings/${id}/rematch`),

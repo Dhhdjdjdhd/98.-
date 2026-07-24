@@ -27,8 +27,9 @@ function Router() {
     if (!paymentKey || !orderId) return;
     (async () => {
       try {
-        const res: any = await api.confirmPayment(orderId, paymentKey, amount);
-        patch({ bookingId: orderId, grade: res.booking?.grade });
+        const res: any = await api.confirmGroupPayment(orderId, paymentKey, amount);
+        const first = res.bookings?.[0];
+        patch({ bookingId: first?.id, groupId: orderId, grade: first?.grade });
         if (res.matched) {
           const worker: any = await api.getWorker(res.workerId);
           patch({ matchedWorker: worker });

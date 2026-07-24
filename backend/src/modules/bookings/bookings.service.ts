@@ -84,6 +84,160 @@ export class BookingsService {
     return { booking, payment };
   }
 
+  // ---- 1-b. 여러 날짜 묶음 예약 생성 (결제 대기) ----
+  async createGroup(dto: {
+    parentId?: string;
+    dates: string[];
+    startTime: string;
+    hours: number;
+    address: string;
+    childAge: any;
+    grade: any;
+    workerId?: string;
+  }) {
+    const parentId = dto.parentId;
+    if (!parentId) throw new BadRequestException('로그인이 필요합니다.');
+    const parent = await this.users.getUser(parentId);
+    if (parent.role !== Role.PARENT) {
+      throw new BadRequestException('부모 계정만 예약할 수 있습니다.');
+    }
+    if (!dto.dates?.length) throw new BadRequestException('날짜를 하나 이상 선택하세요.');
+
+    const now = nowKst();
+    const groupId = genId('grp');
+    const hourly = (await readGradeHourly(this.db))[dto.grade];
+    const price = priceBooking(dto.grade, dto.hours, hourly);
+    const bookings: Booking[] = [];
+    for (const date of dto.dates) {
+      const booking: Booking = {
+        id: genId('bk'),
+        parentId,
+        workerId: dto.workerId ?? null,
+        groupId,
+        date,
+        startTime: dto.startTime,
+        hours: dto.hours,
+        address: dto.address,
+        childAge: dto.childAge,
+        grade: dto.grade,
+        status: BookingStatus.REQUESTED,
+        createdAt: now,
+      };
+      await this.db.insert(COLLECTIONS.BOOKINGS, booking);
+      const payment: Payment = {
+        id: genId('pay'),
+        bookingId: booking.id,
+        hourly: price.hourly,
+        base: price.base,
+        feeRate: price.feeRate,
+        feeAmount: price.feeAmount,
+        workerPayout: price.workerPayout,
+        status: PaymentStatus.PENDING,
+        createdAt: now,
+      };
+      await this.db.insert(COLLECTIONS.PAYMENTS, payment);
+      bookings.push(booking);
+    }
+    return { groupId, total: price.base * dto.dates.length, count: bookings.length, bookings };
+  }
+
+  // ---- 1-c. 여러 날짜 공통으로 배정 가능한 전문가 (모든 날짜의 해당 시간에 비어있는 사람) ----
+  async findAvailableWorkersMulti(grade: string, dates: string[], startTime: string, hours: number) {
+    if (!dates?.length) return [];
+    const perDate = await Promise.all(
+      dates.map((d) => this.findAvailableWorkers(grade, d, startTime, hours)),
+    );
+    const [first, ...rest] = perDate;
+    // 모든 날짜 목록에 공통으로 존재하는 전문가만
+    return first.filter((w) => rest.every((list) => list.some((x) => x.userId === w.userId)));
+  }
+
+  // ---- 2-c. 묶음 결제 승인(토스 총액 1건) → 전 날짜 배정 ----
+  async confirmGroupPayment(groupId: string, paymentKey: string, amount: number) {
+    const bookings = await this.db.find<Booking>(
+      COLLECTIONS.BOOKINGS,
+      (b) => b.groupId === groupId,
+    );
+    if (!bookings.length) throw new BadRequestException('예약을 찾을 수 없습니다.');
+    if (bookings.some((b) => b.status !== BookingStatus.REQUESTED)) {
+      throw new BadRequestException('결제 가능한 상태가 아닙니다.');
+    }
+    const payments = await Promise.all(bookings.map((b) => this.getPaymentByBooking(b.id)));
+    const total = payments.reduce((s, p) => s + p.base, 0);
+    if (total !== amount) {
+      throw new BadRequestException('결제 금액이 일치하지 않습니다.');
+    }
+
+    const secret = process.env.TOSS_SECRET_KEY;
+    if (!secret) throw new BadRequestException('결제 설정 오류: 시크릿 키가 없습니다.');
+    const auth = Buffer.from(`${secret}:`).toString('base64');
+    const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId: groupId, amount }),
+    });
+    const data: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(data?.message || '결제 승인에 실패했습니다.');
+    }
+
+    for (const p of payments) {
+      await this.db.update<Payment>(COLLECTIONS.PAYMENTS, p.id, {
+        status: PaymentStatus.PAID,
+        paymentKey,
+      });
+    }
+    const workerId = bookings[0].workerId;
+    for (const b of bookings) {
+      if (workerId) {
+        await this.db.update<Booking>(COLLECTIONS.BOOKINGS, b.id, {
+          status: BookingStatus.MATCHED,
+          workerAccepted: false,
+        });
+      } else {
+        await this.autoMatch(b); // 미선택 시 각 날짜 자동 매칭
+      }
+    }
+    const updated = await this.db.find<Booking>(COLLECTIONS.BOOKINGS, (b) => b.groupId === groupId);
+    return { groupId, matched: !!workerId, workerId, bookings: updated };
+  }
+
+  // ---- 3-c. 묶음 취소 → 토스 전액 환불(1건) ----
+  async cancelGroup(groupId: string, requesterId?: string) {
+    const bookings = await this.db.find<Booking>(
+      COLLECTIONS.BOOKINGS,
+      (b) => b.groupId === groupId,
+    );
+    if (!bookings.length) throw new BadRequestException('예약을 찾을 수 없습니다.');
+    if (requesterId && bookings[0].parentId !== requesterId) {
+      throw new BadRequestException('본인 예약만 취소할 수 있습니다.');
+    }
+    if (
+      bookings.some((b) =>
+        [BookingStatus.IN_PROGRESS, BookingStatus.DONE, BookingStatus.CANCELED].includes(b.status),
+      )
+    ) {
+      throw new BadRequestException('이미 진행·종료된 예약이 포함되어 묶음 취소할 수 없습니다.');
+    }
+    const payments = (await Promise.all(
+      bookings.map((b) =>
+        this.db.findOne<Payment>(COLLECTIONS.PAYMENTS, (p) => p.bookingId === b.id),
+      ),
+    )).filter(Boolean) as Payment[];
+    const paid = payments.filter((p) => p.status === PaymentStatus.PAID);
+    // 묶음 결제는 토스상 1건 → 대표 1회 전액 환불, 성공 후에만 상태 변경
+    if (paid.length) {
+      await this.refundToss(paid[0]);
+      for (const p of paid) {
+        await this.db.update<Payment>(COLLECTIONS.PAYMENTS, p.id, { status: PaymentStatus.REFUNDED });
+      }
+    }
+    for (const b of bookings) {
+      await this.db.update<Booking>(COLLECTIONS.BOOKINGS, b.id, { status: BookingStatus.CANCELED });
+    }
+    return { groupId, canceled: bookings.length };
+  }
+
   // ---- 2. 결제 완료 → 자동 매칭 ----
   async pay(bookingId: string) {
     const booking = await this.getBooking(bookingId);
