@@ -248,7 +248,8 @@ function FavoriteButton({ workerId }: { workerId?: string }) {
 function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCode) => void; onCancel: (id: string) => void }) {
   const { go, patch, screen } = useApp();
   const st = BOOKING_STATUS[b.status] || [b.status, '#eee', '#888'];
-  const amount = (GRADES[b.grade as GradeCode]?.price || 0) * b.hours;
+  const days = b._groupCount || 1;
+  const amount = (GRADES[b.grade as GradeCode]?.price || 0) * b.hours * days;
   const [worker, setWorker] = useState<any>(null);
   useEffect(() => {
     // 배정된(취소 아닌) 예약이면 담당 근무자 정보 조회
@@ -271,8 +272,15 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
     <div className="mb-3 rounded-2xl border border-line bg-cream p-4">
       <div className="mb-3 flex items-start justify-between">
         <div>
-          <h4 className="text-[16px] font-extrabold text-pine">{CHILD_AGES[b.childAge] || '아이'} 돌봄 · {b.grade}등급</h4>
-          <div className="mt-0.5 text-[13px] text-muted">{b.date} {b.startTime} · {b.hours}시간</div>
+          <h4 className="text-[16px] font-extrabold text-pine">
+            {CHILD_AGES[b.childAge] || '아이'} 돌봄 · {b.grade}등급
+            {b._groupCount > 1 && <span className="ml-1.5 rounded-full bg-[#FCEFE9] px-2 py-0.5 text-[11px] font-bold text-terra-2">{b._groupCount}일 묶음</span>}
+          </h4>
+          <div className="mt-0.5 text-[13px] text-muted">
+            {b._groupCount > 1
+              ? `${b._groupDates.map((x: string) => x.slice(5).replace('-', '/')).join(', ')} · ${b.startTime} · 하루 ${b.hours}시간`
+              : `${b.date} ${b.startTime} · ${b.hours}시간`}
+          </div>
         </div>
         <Badge text={st[0]} bg={st[1]} color={st[2]} />
       </div>
@@ -289,7 +297,7 @@ function BookingCard({ b, onRebook, onCancel }: { b: any; onRebook: (g: GradeCod
           </div>
         </div>
       )}
-      <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">이용 금액 {won(amount)}</div>
+      <div className="mt-1.5 font-serif text-[16px] font-bold text-terra-2">이용 금액 {won(amount)}{days > 1 && <span className="ml-1 text-[12px] font-normal text-muted">({days}일 합계)</span>}</div>
       {b.status === 'CANCELED' && b.paymentStatus === 'REFUNDED' && (
         <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#F3EDED] px-3 py-2.5 text-[13px] font-semibold text-[#B0757A]">
           <span>↩️</span><span>결제 금액 {won(amount)} 환불 완료</span>
@@ -348,6 +356,22 @@ export function ParentBookings() {
   const upcoming = all.filter(isUpcoming).sort(asc);
   const past = all.filter((b) => !isActive(b) && !isUpcoming(b)).sort(desc);
 
+  // 다가오는 예약을 묶음(groupId)별로 하나의 카드로 그룹핑 (대표 1건 + 날짜 목록)
+  const groupBookings = (list: any[]) => {
+    const map: Record<string, any[]> = {};
+    const out: any[] = [];
+    for (const b of list) {
+      if (b.groupId) (map[b.groupId] ||= []).push(b);
+      else out.push(b);
+    }
+    for (const arr of Object.values(map)) {
+      const sorted = [...arr].sort((a, b) => a.date.localeCompare(b.date));
+      out.push({ ...sorted[0], _groupDates: sorted.map((x) => x.date), _groupCount: sorted.length });
+    }
+    return out.sort(asc);
+  };
+  const upcomingGrouped = groupBookings(upcoming);
+
   return (
     <Body>
       <TopBar back="parent-home" title="내 예약내역" />
@@ -362,7 +386,7 @@ export function ParentBookings() {
               </>
             )}
             <Label>다가오는 예약{upcoming.length ? ` (${upcoming.length})` : ''}</Label>
-            {upcoming.length ? upcoming.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)
+            {upcoming.length ? upcomingGrouped.map((b) => <BookingCard key={b.id} b={b} onRebook={doRebook} onCancel={doCancel} />)
               : <div className="mb-3 rounded-2xl border border-dashed border-line py-6 text-center text-[13px] text-muted">예정된 예약이 없어요</div>}
             {past.length > 0 && (
               <>
@@ -822,6 +846,16 @@ export function Matched() {
             <div><b className="block font-serif text-xl text-pine">{years}년</b><span className="text-[11.5px] text-muted">경력</span></div>
           </div>
         </div>
+        {draft.dates?.length > 0 && (
+          <div className="mb-4 rounded-[16px] border border-line bg-ivory-2 px-4 py-3.5 text-[13px]">
+            <div className="flex items-center justify-between">
+              <span className="text-muted">돌봄 일정</span>
+              <b className="text-pine">{draft.dates.length > 1 ? `${draft.dates.length}일 묶음` : '1일'}</b>
+            </div>
+            <div className="mt-1 font-semibold text-ink-2">7월 {draft.dates.join(', ')}일</div>
+            <div className="text-[12px] text-muted">{draft.time}~ · 하루 {draft.hours}시간</div>
+          </div>
+        )}
         <div className="mb-3">
           <InsuranceBadge />
           <p className="mt-1.5 px-1 text-[11.5px] text-muted">⚠️ 이후 앱 밖에서 직접 연락·거래하면 보험·보상을 받을 수 없어요.</p>

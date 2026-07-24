@@ -5,7 +5,7 @@ import { api, AuthUserInfo } from '@/lib/api';
 import { GradeCode, applyGradePrices } from '@/lib/constants';
 
 export type ScreenName =
-  | 'login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
+  | 'login' | 'admin-login' | 'signup-choice' | 'signup-parent' | 'signup-worker'
   | 'parent-home' | 'parent-bookings' | 'parent-carelog'
   | 'grade' | 'date' | 'time' | 'address' | 'select-worker' | 'pay' | 'matching' | 'matched' | 'active' | 'review' | 'done' | 'worker-detail' | 'safety-info'
   | 'worker-home' | 'worker-carelog' | 'worker-observation'

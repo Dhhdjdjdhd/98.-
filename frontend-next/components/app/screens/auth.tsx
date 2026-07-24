@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { api } from '@/lib/api';
+import { useRef, useState, useEffect } from 'react';
+import { api, MC_DEMO_ACCOUNTS } from '@/lib/api';
 import { resizeImage } from '@/lib/image';
 import { useApp } from '../context';
 import { Body, Foot, NextButton, TopBar } from '../ui';
@@ -10,21 +10,24 @@ import { Button } from '@/components/ui/button';
 import { Villy } from '@/components/brand/Villy';
 import { SignaturePad } from '@/components/ui/SignaturePad';
 
-/* ===== 로그인 ===== */
-const DEMO_ROLES: { role: 'parent' | 'worker' | 'admin'; icon: string; label: string; sub: string }[] = [
-  { role: 'parent', icon: '👨‍👩‍👧', label: '부모로 체험', sub: '예약·매칭·리뷰' },
-  { role: 'worker', icon: '🩺', label: '근무자로 체험', sub: '예약요청·수입' },
-  { role: 'admin', icon: '🛡️', label: '관리자로 체험', sub: '자격 승인' },
-];
-
+/* ===== 로그인 (부모님 / 근무자) ===== */
 export function Login() {
   const { live, onAuthed, go } = useApp();
-  const [phone, setPhone] = useState('010-1111-1111');
-  const [pw, setPw] = useState('test1234');
+  const [role, setRole] = useState<'parent' | 'worker'>('parent');
+  const [phone, setPhone] = useState('');
+  const [pw, setPw] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // 역할 탭에 맞춰 데모 계정을 미리 채워 시연을 돕는다(실사용자는 지우고 입력).
+  useEffect(() => {
+    const acc = MC_DEMO_ACCOUNTS[role];
+    setPhone(acc.phone);
+    setPw(acc.password);
+  }, [role]);
+
   async function doLogin() {
-    if (!live) return alert('서버 미연결 상태입니다. 아래 "데모 계정으로 체험"을 이용하세요.');
+    if (!live) return alert('서버 미연결 상태입니다. 잠시 후 다시 시도해 주세요.');
+    if (!phone || !pw) return alert('휴대폰 번호와 비밀번호를 입력하세요.');
     setBusy(true);
     try {
       onAuthed(await api.login(phone.trim(), pw));
@@ -34,16 +37,9 @@ export function Login() {
       setBusy(false);
     }
   }
-  async function quick(role: 'parent' | 'worker' | 'admin') {
-    setBusy(true);
-    try {
-      onAuthed(await api.loginDemo(role));
-    } catch (e: any) {
-      alert('데모 로그인 실패: ' + e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+
+  const tabCls = (on: boolean) =>
+    'flex-1 rounded-lg py-2.5 text-[14px] font-bold transition ' + (on ? 'bg-white text-pine shadow-sm' : 'text-muted');
 
   return (
     <Body className="pt-8">
@@ -60,43 +56,85 @@ export function Login() {
           {live ? '🟢 실서버 연동 중' : '🔵 서버 준비 중… (첫 접속은 시간이 걸려요)'}
         </div>
       </div>
+
+      {/* 역할 선택 탭 */}
+      <div className="mt-5 flex gap-1 rounded-xl bg-ivory-2 p-1">
+        <button onClick={() => setRole('parent')} className={tabCls(role === 'parent')}>👨‍👩‍👧 부모님</button>
+        <button onClick={() => setRole('worker')} className={tabCls(role === 'worker')}>🩺 근무자</button>
+      </div>
+
       <div className="mt-4">
         <Field label="휴대폰 번호">
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" />
         </Field>
         <Field label="비밀번호">
           <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
         </Field>
         <Button className="w-full" disabled={busy} onClick={doLogin}>
-          로그인
+          {role === 'parent' ? '부모님 로그인' : '근무자 로그인'}
         </Button>
       </div>
+
       <div className="my-4 text-center text-[13px] text-muted">
         계정이 없으신가요?{' '}
-        <button className="font-bold text-terra" onClick={() => go('signup-choice')}>
-          회원가입
+        <button className="font-bold text-terra" onClick={() => go(role === 'parent' ? 'signup-parent' : 'signup-worker')}>
+          {role === 'parent' ? '부모 회원가입' : '근무자 회원가입'}
         </button>
       </div>
-      <div className="my-4 flex items-center gap-2.5">
-        <div className="h-px flex-1 bg-line" />
-        <span className="text-[12px] text-muted">데모 계정으로 바로 체험</span>
-        <div className="h-px flex-1 bg-line" />
+
+      <div className="mt-6 border-t border-line pt-4 text-center">
+        <button className="text-[12.5px] text-muted underline underline-offset-2" onClick={() => go('admin-login')}>
+          🛡️ 관리자 로그인
+        </button>
       </div>
-      <div className="flex flex-col gap-2.5">
-        {DEMO_ROLES.map((d) => (
-          <button
-            key={d.role}
-            disabled={busy}
-            onClick={() => quick(d.role)}
-            className="flex items-center gap-3.5 rounded-[15px] border-[1.5px] border-line bg-cream px-4 py-4 text-left transition hover:border-terra disabled:opacity-50"
-          >
-            <span className="text-2xl">{d.icon}</span>
-            <span className="flex-1">
-              <b className="block text-[15px]">{d.label}</b>
-              <span className="text-[12.5px] text-muted">{d.sub}</span>
-            </span>
-          </button>
-        ))}
+    </Body>
+  );
+}
+
+/* ===== 관리자 로그인 (분리) ===== */
+export function AdminLogin() {
+  const { live, onAuthed, go } = useApp();
+  const [phone, setPhone] = useState(MC_DEMO_ACCOUNTS.admin.phone);
+  const [pw, setPw] = useState(MC_DEMO_ACCOUNTS.admin.password);
+  const [busy, setBusy] = useState(false);
+
+  async function doLogin() {
+    if (!live) return alert('서버 미연결 상태입니다. 잠시 후 다시 시도해 주세요.');
+    if (!phone || !pw) return alert('휴대폰 번호와 비밀번호를 입력하세요.');
+    setBusy(true);
+    try {
+      const u = await api.login(phone.trim(), pw);
+      if (u.role !== 'ADMIN') {
+        api.logout();
+        alert('관리자 계정이 아닙니다.');
+        return;
+      }
+      onAuthed(u);
+    } catch (e: any) {
+      alert('로그인 실패: ' + e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Body className="pt-8">
+      <TopBar back="login" title="관리자 로그인" />
+      <div className="pb-2 pt-6 text-center">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#EEF2F6] text-[34px]">🛡️</div>
+        <h1 className="mt-3 font-serif text-xl font-bold text-pine">관리자 로그인</h1>
+        <p className="mt-1 text-[13px] text-muted">케어빌리지 운영 관리자 전용 페이지입니다</p>
+      </div>
+      <div className="mt-4">
+        <Field label="휴대폰 번호">
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" />
+        </Field>
+        <Field label="비밀번호">
+          <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        </Field>
+        <Button className="w-full" disabled={busy} onClick={doLogin}>
+          관리자 로그인
+        </Button>
       </div>
     </Body>
   );
@@ -190,7 +228,7 @@ export function SignupParent() {
   return (
     <>
       <Body>
-        <TopBar back="signup-choice" title="부모(산모) 회원가입" />
+        <TopBar back="login" title="부모(산모) 회원가입" />
 
         <div className="mb-2 text-[12px] font-bold uppercase tracking-wide text-muted">기본 정보</div>
         <Field label="이름"><Input value={f.name} onChange={set('name')} placeholder="예) 김미영" /></Field>
@@ -306,7 +344,7 @@ export function SignupWorker() {
   return (
     <>
       <Body>
-        <TopBar back="signup-choice" title="근무자 회원가입" />
+        <TopBar back="login" title="근무자 회원가입" />
         <Field label="이름"><Input value={f.name} onChange={set('name')} placeholder="예) 김서연" /></Field>
         <Field label="휴대폰 번호"><Input value={f.phone} onChange={set('phone')} placeholder="010-0000-0000" /></Field>
         <Field label="비밀번호 (4자 이상)"><Input type="password" value={f.password} onChange={set('password')} /></Field>

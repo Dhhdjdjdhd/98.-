@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, AuthUserInfo } from '@/lib/api';
 import { AppProvider, useApp } from './context';
-import { Login, SignupChoice, SignupParent, SignupWorker } from './screens/auth';
+import { Login, AdminLogin, SignupChoice, SignupParent, SignupWorker } from './screens/auth';
 import {
   ParentHome, ParentBookings, ParentCareLog,
   GradeSelect, DateSelect, TimeSelect, AddressChild, SelectWorker, Pay, Matching, Matched, Active, Review, Done, WorkerDetail, SafetyInfo,
@@ -48,6 +48,7 @@ function Router() {
   }, []);
   switch (screen) {
     case 'login': return <Login />;
+    case 'admin-login': return <AdminLogin />;
     case 'signup-choice': return <SignupChoice />;
     case 'signup-parent': return <SignupParent />;
     case 'signup-worker': return <SignupWorker />;
